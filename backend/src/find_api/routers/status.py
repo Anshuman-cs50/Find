@@ -14,7 +14,7 @@ redis_conn = Redis.from_url(settings.REDIS_URL)
 
 
 @router.get("/status/{job_id}")
-async def get_job_status(job_id: str):
+def get_job_status(job_id: str):
     """
     Check status of a processing job
 

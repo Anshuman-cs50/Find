@@ -42,11 +42,10 @@ uploads/
 *.db
 *.sqlite
 
-# ML Models (download locally, don't commit)
+# ML weights/checkpoints (download locally, don't commit)
 *.pt
 *.pth
 *.onnx
-models/
 
 # Logs
 logs/

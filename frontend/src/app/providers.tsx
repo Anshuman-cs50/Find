@@ -28,7 +28,7 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <Toaster position="top-right" richColors />
+      <Toaster position="top-right" richColors theme="dark" />
     </QueryClientProvider>
   );
 }

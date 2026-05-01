@@ -1,10 +1,11 @@
 """
-Object detection using YOLOv10
+Object detection using Ultralytics YOLO
 """
 
 from ultralytics import YOLO
 from PIL import Image
 import numpy as np
+import torch
 from typing import List, Dict, Union
 import logging
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class ObjectDetector:
-    """Detect objects in images using YOLOv10"""
+    """Detect objects in images using Ultralytics YOLO"""
 
     def __init__(self):
         self.manager = get_model_manager()
@@ -38,7 +39,7 @@ class ObjectDetector:
         """
         try:
             # Get model from manager
-            model = self.manager.get_model("yolov10", self._load_model)
+            model = self.manager.get_model("yolo", self._load_model)
 
             # Run inference
             # Note: In a single-worker setup, we don't strictly need the lock for safety,
@@ -47,7 +48,14 @@ class ObjectDetector:
             # the async lock here without an event loop.
             # For now, we rely on the single-worker architecture for serialization.
 
-            results = model(image, conf=conf_threshold, verbose=False)
+            use_cuda = settings.USE_GPU and torch.cuda.is_available()
+            results = model(
+                image,
+                conf=conf_threshold,
+                verbose=False,
+                device=0 if use_cuda else None,
+                half=use_cuda and settings.YOLO_HALF,
+            )
 
             detections = []
 

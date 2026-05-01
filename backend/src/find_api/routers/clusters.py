@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/clusters")
-async def get_clusters(db: Session = Depends(get_db)):
+def get_clusters(db: Session = Depends(get_db)):
     """
     Get all clusters with member information
 
@@ -56,7 +56,7 @@ async def get_clusters(db: Session = Depends(get_db)):
 
 
 @router.get("/cluster/{cluster_id}")
-async def get_cluster_detail(cluster_id: int, db: Session = Depends(get_db)):
+def get_cluster_detail(cluster_id: int, db: Session = Depends(get_db)):
     """
     Get detailed information about a specific cluster
 
@@ -105,7 +105,7 @@ async def get_cluster_detail(cluster_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/cluster/run")
-async def trigger_clustering():
+def trigger_clustering():
     """
     Manually trigger clustering job
 

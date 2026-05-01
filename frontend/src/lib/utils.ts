@@ -31,29 +31,29 @@ export function formatDate(date: string | Date): string {
 export function getStatusColor(status: string): string {
   switch (status) {
     case "indexed":
-      return "text-green-600";
+      return "text-[#7dffc7]";
     case "processing":
-      return "text-blue-600";
+      return "text-[#9fceff]";
     case "pending":
-      return "text-yellow-600";
+      return "text-[#ffe08a]";
     case "failed":
-      return "text-red-600";
+      return "text-[#ff9bab]";
     default:
-      return "text-gray-600";
+      return "text-[#a1a4a5]";
   }
 }
 
 export function getStatusBadgeClass(status: string): string {
   switch (status) {
     case "indexed":
-      return "bg-green-100 text-green-800";
+      return "accent-badge status-indexed";
     case "processing":
-      return "bg-blue-100 text-blue-800";
+      return "accent-badge status-processing";
     case "pending":
-      return "bg-yellow-100 text-yellow-800";
+      return "accent-badge status-pending";
     case "failed":
-      return "bg-red-100 text-red-800";
+      return "accent-badge status-failed";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "accent-badge status-default";
   }
 }

@@ -73,10 +73,7 @@ def generate_hybrid_embedding(
         # Generate Image Embedding
         image_embedding = embedder.embed_image(image)
 
-        # Generate Caption Embedding
-        caption_embedding = embedder.embed_text(metadata.get("caption", ""))
-
-        # Generate Objects Embedding
+        # Generate caption/object text embeddings in one model pass.
         objects = metadata.get("objects", [])
         object_names = [obj["class"] for obj in objects]
         if object_names:
@@ -85,7 +82,9 @@ def generate_hybrid_embedding(
             )
         else:
             objects_text = ""
-        objects_embedding = embedder.embed_text(objects_text)
+        caption_embedding, objects_embedding = embedder.embed_text(
+            [metadata.get("caption", ""), objects_text]
+        )
 
         # Create Hybrid Vector (Average)
         hybrid_vector = (image_embedding + caption_embedding + objects_embedding) / 3.0

@@ -78,7 +78,7 @@ class ImageCaptioner:
             }
 
             # Generate
-            with torch.no_grad():
+            with torch.inference_mode():
                 generated_ids = model.generate(
                     input_ids=inputs["input_ids"],
                     pixel_values=inputs["pixel_values"],
@@ -142,7 +142,7 @@ class ImageCaptioner:
                 for k, v in inputs.items()
             }
 
-            with torch.no_grad():
+            with torch.inference_mode():
                 generated_ids = model.generate(
                     input_ids=inputs["input_ids"],
                     pixel_values=inputs["pixel_values"],

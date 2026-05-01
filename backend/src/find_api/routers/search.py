@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("/search")
-async def search_images(
+def search_images(
     q: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),

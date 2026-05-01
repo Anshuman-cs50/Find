@@ -38,13 +38,14 @@ class ImageClusterer:
         Cluster embeddings using HDBSCAN
         """
         try:
+            embeddings = np.asarray(embeddings, dtype=np.float32, order="C")
+
             if len(embeddings) == 0:
                 return np.array([]), {"n_clusters": 0, "noise_points": 0}
 
             # Normalize embeddings (critical for cosine similarity / euclidean on unit sphere)
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-            # Avoid division by zero
-            embeddings = embeddings / (norms + 1e-10)
+            np.divide(embeddings, norms, out=embeddings, where=norms > 0)
 
             if len(embeddings) < self.min_cluster_size:
                 logger.warning(
@@ -55,19 +56,14 @@ class ImageClusterer:
                     "noise_points": len(embeddings),
                 }
 
-            # Run HDBSCAN
-            clusterer = HDBSCAN(
-                min_cluster_size=self.min_cluster_size,
-                min_samples=self.min_samples,
-                metric=metric,
-                cluster_selection_method="eom",
-            )
-
-            cluster_labels = clusterer.fit_predict(embeddings)
+            cluster_labels = self._fit_predict(embeddings, metric)
 
             # Compute statistics
-            n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-            n_noise = list(cluster_labels).count(-1)
+            unique_labels, label_counts = np.unique(cluster_labels, return_counts=True)
+            n_clusters = int(np.count_nonzero(unique_labels != -1))
+            n_noise = (
+                int(label_counts[unique_labels == -1][0]) if -1 in unique_labels else 0
+            )
 
             cluster_info = {
                 "n_clusters": n_clusters,
@@ -76,11 +72,9 @@ class ImageClusterer:
                 "cluster_sizes": {},
             }
 
-            # Count members per cluster
-            for label in set(cluster_labels):
+            for label, count in zip(unique_labels, label_counts):
                 if label != -1:
-                    count = list(cluster_labels).count(label)
-                    cluster_info["cluster_sizes"][int(label)] = count
+                    cluster_info["cluster_sizes"][int(label)] = int(count)
 
             logger.info(
                 f"Clustering complete: {n_clusters} clusters, {n_noise} noise points"
@@ -92,6 +86,60 @@ class ImageClusterer:
             logger.error(f"Failed to cluster embeddings: {e}")
             raise
 
+    def _fit_predict(self, embeddings: np.ndarray, metric: str) -> np.ndarray:
+        backend = settings.CLUSTERING_BACKEND.lower()
+
+        if settings.USE_GPU and backend in {"auto", "cuml"}:
+            try:
+                labels = self._fit_predict_cuml(embeddings, metric)
+                logger.info("Clustering used cuML GPU backend")
+                return labels
+            except ImportError:
+                if backend == "cuml":
+                    raise
+                logger.info("cuML is not installed; falling back to CPU HDBSCAN")
+            except Exception as exc:
+                if backend == "cuml":
+                    raise
+                logger.warning("cuML HDBSCAN failed; falling back to CPU: %s", exc)
+
+        return self._fit_predict_sklearn(embeddings, metric)
+
+    def _fit_predict_cuml(self, embeddings: np.ndarray, metric: str) -> np.ndarray:
+        if metric != "euclidean":
+            raise ValueError("cuML HDBSCAN backend currently expects euclidean metric")
+
+        from cuml.cluster import HDBSCAN as CuHDBSCAN  # type: ignore[import-not-found]
+
+        clusterer = CuHDBSCAN(
+            min_cluster_size=self.min_cluster_size,
+            min_samples=self.min_samples,
+            metric=metric,
+            cluster_selection_method="eom",
+        )
+        labels = clusterer.fit_predict(embeddings)
+        if hasattr(labels, "get"):
+            labels = labels.get()
+        return np.asarray(labels, dtype=np.int32)
+
+    def _fit_predict_sklearn(self, embeddings: np.ndarray, metric: str) -> np.ndarray:
+        clusterer_kwargs = {
+            "min_cluster_size": self.min_cluster_size,
+            "min_samples": self.min_samples,
+            "metric": metric,
+            "cluster_selection_method": "eom",
+        }
+        try:
+            clusterer = HDBSCAN(
+                **clusterer_kwargs,
+                n_jobs=settings.CLUSTERING_N_JOBS,
+                copy=False,
+            )
+        except TypeError:
+            clusterer = HDBSCAN(**clusterer_kwargs)
+
+        return np.asarray(clusterer.fit_predict(embeddings), dtype=np.int32)
+
     def compute_centroids(
         self, embeddings: np.ndarray, labels: np.ndarray
     ) -> Dict[int, np.ndarray]:
@@ -100,25 +148,30 @@ class ImageClusterer:
         """
         centroids = {}
 
-        # Normalize inputs just in case
+        embeddings = np.asarray(embeddings, dtype=np.float32, order="C")
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-        embeddings = embeddings / (norms + 1e-10)
+        np.divide(embeddings, norms, out=embeddings, where=norms > 0)
 
-        unique_labels = set(labels)
-        for label in unique_labels:
-            if label == -1:  # Skip noise
-                continue
+        labels = np.asarray(labels, dtype=np.int32)
+        valid_mask = labels != -1
+        if not np.any(valid_mask):
+            return centroids
 
-            # Get all embeddings in this cluster
-            mask = labels == label
-            cluster_embeddings = embeddings[mask]
+        valid_labels = labels[valid_mask]
+        unique_labels = np.unique(valid_labels)
+        inverse = np.searchsorted(unique_labels, valid_labels)
+        cluster_sums = np.zeros(
+            (len(unique_labels), embeddings.shape[1]),
+            dtype=np.float32,
+        )
+        np.add.at(cluster_sums, inverse, embeddings[valid_mask])
+        counts = np.bincount(inverse, minlength=len(unique_labels)).astype(np.float32)
 
-            # Compute mean (centroid)
-            centroid = np.mean(cluster_embeddings, axis=0)
+        centroid_matrix = cluster_sums / counts[:, None]
+        norms = np.linalg.norm(centroid_matrix, axis=1, keepdims=True)
+        np.divide(centroid_matrix, norms, out=centroid_matrix, where=norms > 0)
 
-            # Normalize centroid
-            centroid = centroid / np.linalg.norm(centroid)
-
+        for label, centroid in zip(unique_labels, centroid_matrix):
             centroids[int(label)] = centroid
 
         return centroids
@@ -135,8 +188,10 @@ class ImageClusterer:
         if not centroids:
             return -1
 
-        # Normalize embedding
-        embedding = embedding / np.linalg.norm(embedding)
+        norm = np.linalg.norm(embedding)
+        if norm == 0:
+            return -1
+        embedding = embedding / norm
 
         # Find nearest centroid
         best_similarity = -1

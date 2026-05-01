@@ -1,57 +1,70 @@
-import { ArrowRight, Image as ImageIcon, Lock, Sparkles } from "lucide-react";
+import { ArrowRight, Image as ImageIcon, Lock, ScanSearch } from "lucide-react";
 import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero */}
-      <div className="max-w-5xl mx-auto px-6 pt-32 pb-24">
-        <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-6xl md:text-8xl font-medium tracking-tight text-black mb-8">
-            Your visual memory.
+    <main className="home-shell">
+      <section className="container-shell hero-viewport flex flex-col justify-center gap-8 py-8 md:gap-10 md:py-10">
+        <div className="page-enter mx-auto flex max-w-4xl flex-col items-center justify-center text-center">
+          <h1 className="display-heading mb-4 text-5xl sm:text-6xl lg:text-6xl xl:text-7xl">
+            <span className="block sm:hidden">Your visual</span>
+            <span className="block sm:hidden">memory,</span>
+            <span className="block sm:hidden">indexed.</span>
+            <span className="hidden sm:inline">
+              Your visual memory,
+              <br />
+              indexed.
+            </span>
           </h1>
-          <p className="text-xl text-gray-500 mb-12 font-light">
+          <p className="muted-copy mb-7 max-w-2xl text-sm leading-6 md:text-base">
             AI-powered image intelligence that runs entirely on your device.
             Fast, private, and beautiful.
           </p>
-          <Link
-            href="/upload"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-black text-white text-sm font-medium rounded-full hover:bg-gray-800 transition-transform hover:scale-105 active:scale-95"
-          >
-            Start Uploading
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Features */}
-      <div className="max-w-5xl mx-auto px-6 pb-32">
-        <div className="flex flex-col md:flex-row gap-12 justify-center border-t border-gray-100 pt-16">
-          <div className="flex items-center gap-4">
-            <Lock className="w-5 h-5 text-gray-400" />
-            <div>
-              <h3 className="text-sm font-medium text-black">Private</h3>
-              <p className="text-sm text-gray-500">100% local processing</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Sparkles className="w-5 h-5 text-gray-400" />
-            <div>
-              <h3 className="text-sm font-medium text-black">Intelligent</h3>
-              <p className="text-sm text-gray-500">Natural language search</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <ImageIcon className="w-5 h-5 text-gray-400" />
-            <div>
-              <h3 className="text-sm font-medium text-black">Organized</h3>
-              <p className="text-sm text-gray-500">Automatic clustering</p>
-            </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link
+              href="/upload"
+              className="white-pill px-6 py-3 text-sm font-semibold"
+            >
+              Start uploading
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/search"
+              className="frost-button px-6 py-3 text-sm font-medium"
+            >
+              Search library
+            </Link>
           </div>
         </div>
-      </div>
-    </div>
+
+        <div className="delayed-enter grid gap-3 border-t border-[var(--frost)] pt-5 md:grid-cols-3">
+          <div className="frost-panel card-hover flex min-w-0 items-center gap-4 rounded-2xl p-4">
+            <Lock className="h-5 w-5 shrink-0 text-[#7dffc7]" />
+            <div>
+              <h3 className="text-sm font-medium text-[#f0f0f0]">Private</h3>
+              <p className="text-sm text-[#a1a4a5]">100% local processing</p>
+            </div>
+          </div>
+
+          <div className="frost-panel card-hover flex min-w-0 items-center gap-4 rounded-2xl p-4">
+            <ScanSearch className="h-5 w-5 shrink-0 text-[#3b9eff]" />
+            <div>
+              <h3 className="text-sm font-medium text-[#f0f0f0]">
+                Intelligent
+              </h3>
+              <p className="text-sm text-[#a1a4a5]">Natural language search</p>
+            </div>
+          </div>
+
+          <div className="frost-panel card-hover flex min-w-0 items-center gap-4 rounded-2xl p-4">
+            <ImageIcon className="h-5 w-5 shrink-0 text-[#ff801f]" />
+            <div>
+              <h3 className="text-sm font-medium text-[#f0f0f0]">Organized</h3>
+              <p className="text-sm text-[#a1a4a5]">Automatic clustering</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }

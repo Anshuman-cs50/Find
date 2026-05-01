@@ -13,10 +13,6 @@ from find_api.core.queue import clear_clustering_job_state, enqueue_clustering_j
 from find_api.core.storage import get_file
 from find_api.models.media import Media
 from find_api.utils.exif import extract_exif_data
-from find_api.workers.processors import (
-    extract_image_metadata,
-    generate_hybrid_embedding,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +24,11 @@ def analyze_image(media_id: int):
     Args:
         media_id: Database ID of media record
     """
+    from find_api.workers.processors import (
+        extract_image_metadata,
+        generate_hybrid_embedding,
+    )
+
     # job = get_current_job()
     db = SessionLocal()
     media = None
@@ -126,32 +127,31 @@ def cluster_images():
         db.query(Cluster).delete(synchronize_session=False)
         db.flush()
 
-        # Get all indexed media with embeddings
-        media_list = (
-            db.query(Media)
+        media_rows = (
+            db.query(Media.id, Media.vector)
             .filter(Media.status == "indexed", Media.vector.isnot(None))
             .all()
         )
 
-        if len(media_list) < settings.MIN_CLUSTER_SIZE:
+        if len(media_rows) < settings.MIN_CLUSTER_SIZE:
             db.commit()
             logger.warning(
                 "Not enough images for clustering (found %s, need %s)",
-                len(media_list),
+                len(media_rows),
                 settings.MIN_CLUSTER_SIZE,
             )
             return {
                 "n_clusters": 0,
-                "noise_points": len(media_list),
-                "total_points": len(media_list),
+                "noise_points": len(media_rows),
+                "total_points": len(media_rows),
                 "message": "Not enough indexed images for clustering",
             }
 
         # Extract embeddings and IDs
-        embeddings = np.array([m.vector for m in media_list])
-        media_ids = [m.id for m in media_list]
+        embeddings = np.asarray([row.vector for row in media_rows], dtype=np.float32)
+        media_ids = [row.id for row in media_rows]
 
-        logger.info(f"Clustering {len(media_list)} images...")
+        logger.info(f"Clustering {len(media_rows)} images...")
 
         # Run clustering
         clusterer = get_image_clusterer()
@@ -189,12 +189,18 @@ def cluster_images():
             cluster_records[cluster_label] = cluster
 
         # Update media with cluster assignments
-        for i, media in enumerate(media_list):
-            cluster_label = int(labels[i])
-            if cluster_label == -1:
-                media.cluster_id = None
-                continue
-            media.cluster_id = cluster_records[cluster_label].id
+        db.bulk_update_mappings(
+            Media,
+            [
+                {
+                    "id": media_id,
+                    "cluster_id": None
+                    if int(labels[index]) == -1
+                    else cluster_records[int(labels[index])].id,
+                }
+                for index, media_id in enumerate(media_ids)
+            ],
+        )
 
         db.commit()
 

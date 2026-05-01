@@ -2,12 +2,14 @@
 Application configuration using Pydantic settings
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class Settings(BaseSettings):
     """Application settings"""
+
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
     # API
     API_HOST: str = "0.0.0.0"
@@ -32,8 +34,9 @@ class Settings(BaseSettings):
     CLIP_MODEL: str = "ViT-B-16-SigLIP"
     CLIP_PRETRAINED: str = "webli"
     BLIP_MODEL: str = "microsoft/Florence-2-base"
-    YOLO_MODEL: str = "yolov10b.pt"
+    YOLO_MODEL: str = "yolo26n.pt"
     USE_GPU: bool = False
+    YOLO_HALF: bool = True
 
     # Processing
     MAX_UPLOAD_SIZE_MB: int = 50
@@ -45,10 +48,8 @@ class Settings(BaseSettings):
     # Clustering
     MIN_CLUSTER_SIZE: int = 2
     MIN_SAMPLES: int = 1
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    CLUSTERING_N_JOBS: int = -1
+    CLUSTERING_BACKEND: str = "auto"
 
 
 settings = Settings()

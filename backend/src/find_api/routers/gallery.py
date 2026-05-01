@@ -2,6 +2,7 @@
 Gallery endpoint for browsing images
 """
 
+import json
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -15,8 +16,20 @@ from find_api.models.cluster import Cluster
 router = APIRouter()
 
 
+def normalize_metadata(value):
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
 @router.get("/gallery")
-async def get_gallery(
+def get_gallery(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     status: Optional[str] = None,
@@ -74,10 +87,11 @@ async def get_gallery(
             item["url"] = None
 
         # Add metadata if indexed
-        if media.status == "indexed" and media.metadata_json:
-            item["caption"] = media.metadata_json.get("caption", "")
-            item["objects"] = media.metadata_json.get("objects", [])
-            item["has_text"] = bool(media.metadata_json.get("ocr_text", ""))
+        metadata = normalize_metadata(media.metadata_json)
+        if media.status == "indexed" and metadata:
+            item["caption"] = metadata.get("caption", "")
+            item["objects"] = metadata.get("objects", [])
+            item["has_text"] = bool(metadata.get("ocr_text", ""))
 
         items.append(item)
 
@@ -92,7 +106,7 @@ async def get_gallery(
 
 
 @router.get("/image/{media_id}")
-async def get_image_detail(media_id: int, db: Session = Depends(get_db)):
+def get_image_detail(media_id: int, db: Session = Depends(get_db)):
     """
     Get detailed information about a specific image
 
@@ -109,6 +123,8 @@ async def get_image_detail(media_id: int, db: Session = Depends(get_db)):
 
         raise HTTPException(404, "Image not found")
 
+    metadata = normalize_metadata(media.metadata_json)
+
     # Build response
     response = {
         "id": media.id,
@@ -123,7 +139,10 @@ async def get_image_detail(media_id: int, db: Session = Depends(get_db)):
         "created_at": media.created_at.isoformat() if media.created_at else None,
         "processed_at": media.processed_at.isoformat() if media.processed_at else None,
         "cluster_id": media.cluster_id,
-        "metadata": media.metadata_json,
+        "metadata": metadata,
+        "caption": metadata.get("caption", ""),
+        "objects": metadata.get("objects", []),
+        "has_text": bool(metadata.get("ocr_text", "")),
         "exif": media.exif_json,
         "error": media.error_message,
         "liked": media.liked,
@@ -139,7 +158,7 @@ async def get_image_detail(media_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/image/{media_id}/like")
-async def toggle_like(media_id: int, db: Session = Depends(get_db)):
+def toggle_like(media_id: int, db: Session = Depends(get_db)):
     media = db.query(Media).filter(Media.id == media_id).first()
     if not media:
         raise HTTPException(404, "Image not found")
@@ -152,7 +171,7 @@ async def toggle_like(media_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/image/{media_id}")
-async def delete_image(media_id: int, db: Session = Depends(get_db)):
+def delete_image(media_id: int, db: Session = Depends(get_db)):
     media = db.query(Media).filter(Media.id == media_id).first()
     if not media:
         raise HTTPException(404, "Image not found")

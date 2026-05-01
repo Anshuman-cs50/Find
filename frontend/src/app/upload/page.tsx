@@ -2,6 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import {
+  ArrowRight,
   CheckCircle,
   Image as ImageIcon,
   Loader2,
@@ -72,18 +73,18 @@ function getDisplayStatus(item: UploadListItem) {
 
 function getStatusClasses(item: UploadListItem) {
   if (item.status === "duplicate") {
-    return "bg-yellow-100 text-yellow-800";
+    return "accent-badge status-pending";
   }
   if (item.status === "failed" || item.processingState === "failed") {
-    return "bg-red-100 text-red-700";
+    return "accent-badge status-failed";
   }
   if (item.processingState === "indexed") {
-    return "bg-green-100 text-green-700";
+    return "accent-badge status-indexed";
   }
   if (item.processingState === "processing") {
-    return "bg-blue-100 text-blue-700";
+    return "accent-badge status-processing";
   }
-  return "bg-gray-100 text-gray-700";
+  return "accent-badge status-default";
 }
 
 export default function UploadPage() {
@@ -289,10 +290,10 @@ export default function UploadPage() {
 
   const helperText = useMemo(() => {
     if (mode === "single") {
-      return "JPEG, PNG, WebP, GIF • Max 50MB each";
+      return "JPEG, PNG, WebP, GIF. Max 50MB each";
     }
 
-    return `Upload a ZIP archive up to ${maxBulkFiles} images`;
+    return `ZIP archive up to ${maxBulkFiles} images`;
   }, [mode, maxBulkFiles]);
 
   const stats = useMemo(
@@ -317,78 +318,77 @@ export default function UploadPage() {
   const showActions = stats.indexed > 0 || stats.duplicates > 0;
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto max-w-3xl px-6 py-12">
-        <div className="mb-12 text-center">
-          <h1 className="mb-3 text-4xl font-medium tracking-tight text-black">
+    <div className="page-shell">
+      <div className="container-shell max-w-3xl py-10 md:py-14">
+        <div className="page-enter mb-10 text-center">
+          <h1 className="section-heading mb-4 text-5xl font-medium md:text-6xl">
             Upload
           </h1>
-          <p className="text-sm text-gray-500">
-            Add images to analyze. Semantic search and clustering run locally in
-            the background.
+          <p className="muted-copy mx-auto max-w-xl text-sm leading-6">
+            Add images to analyze. Search and clustering update as jobs finish.
           </p>
         </div>
 
-        <div className="mb-6 flex justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("single")}
-            className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
-              mode === "single"
-                ? "bg-black text-white"
-                : "bg-gray-100 text-gray-500 hover:text-black hover:bg-gray-200"
-            }`}
-          >
-            Files
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("bulk")}
-            className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
-              mode === "bulk"
-                ? "bg-black text-white"
-                : "bg-gray-100 text-gray-500 hover:text-black hover:bg-gray-200"
-            }`}
-          >
-            ZIP Archive
-          </button>
+        <div className="delayed-enter mb-5 flex justify-center">
+          <div className="frost-panel flex rounded-full p-1">
+            <button
+              type="button"
+              onClick={() => setMode("single")}
+              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                mode === "single"
+                  ? "bg-white text-black"
+                  : "text-[#a1a4a5] hover:bg-white/[0.08] hover:text-[#f0f0f0]"
+              }`}
+            >
+              Files
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("bulk")}
+              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                mode === "bulk"
+                  ? "bg-white text-black"
+                  : "text-[#a1a4a5] hover:bg-white/[0.08] hover:text-[#f0f0f0]"
+              }`}
+            >
+              ZIP
+            </button>
+          </div>
         </div>
 
         <div
           {...activeRootProps()}
-          className={`rounded-2xl p-16 text-center cursor-pointer transition-all ${
+          className={`frost-panel scan-line cursor-pointer rounded-3xl p-10 text-center transition md:p-14 ${
             isDragActive
-              ? "bg-gray-100 scale-[1.02]"
-              : "bg-gray-50 hover:bg-gray-100"
+              ? "scale-[1.01] border-[#3b9eff] bg-[var(--blue-soft)]"
+              : "hover:border-[var(--frost-strong)] hover:bg-white/[0.045]"
           } ${isUploading ? "pointer-events-none opacity-50" : ""}`}
         >
           <input {...activeInputProps()} />
-          {mode === "single" ? (
-            <Upload className="mx-auto mb-4 h-8 w-8 text-gray-400" />
-          ) : (
-            <Package className="mx-auto mb-4 h-8 w-8 text-gray-400" />
-          )}
+          <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-full border border-[var(--frost)] bg-white/[0.04]">
+            {mode === "single" ? (
+              <Upload className="h-6 w-6 text-[#3b9eff]" />
+            ) : (
+              <Package className="h-6 w-6 text-[#ff801f]" />
+            )}
+          </div>
 
-          {isDragActive ? (
-            <p className="text-base font-medium text-black">Drop to upload</p>
-          ) : (
-            <>
-              <p className="mb-1 text-base font-medium text-black">
-                {mode === "single"
-                  ? "Drop images here"
-                  : "Drop a ZIP archive here"}
-              </p>
-              <p className="text-sm text-gray-500">{helperText}</p>
-            </>
-          )}
+          <p className="mb-2 text-base font-medium text-[#f0f0f0]">
+            {isDragActive
+              ? "Drop to upload"
+              : mode === "single"
+                ? "Drop images here"
+                : "Drop a ZIP archive here"}
+          </p>
+          <p className="text-sm text-[#a1a4a5]">{helperText}</p>
         </div>
 
         {fileRejections.length > 0 && (
-          <div className="mt-6 rounded-xl bg-red-50 p-4">
-            <p className="mb-2 text-sm font-medium text-red-900">
+          <div className="mt-6 rounded-3xl border border-[var(--red-soft)] bg-[var(--red-soft)] p-4">
+            <p className="mb-2 text-sm font-medium text-[#ff9bab]">
               Some files were rejected:
             </p>
-            <ul className="space-y-1 text-sm text-red-700">
+            <ul className="space-y-1 text-sm text-[#ff9bab]/85">
               {fileRejections.map(({ file, errors }) => (
                 <li key={file.name}>
                   {file.name}: {errors[0]?.message}
@@ -399,28 +399,33 @@ export default function UploadPage() {
         )}
 
         {(isUploading || activeJobs.length > 0) && (
-          <div className="mt-8 text-center text-gray-500">
-            <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
-            <p className="text-sm font-medium text-black">
-              {isUploading
-                ? "Uploading..."
-                : `Analyzing ${activeJobs.length} image${activeJobs.length === 1 ? "" : "s"}...`}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">Indexing updates live.</p>
+          <div className="frost-panel mt-8 flex items-center gap-4 rounded-3xl p-4">
+            <Loader2 className="h-5 w-5 animate-spin text-[#3b9eff]" />
+            <div>
+              <p className="text-sm font-medium text-[#f0f0f0]">
+                {isUploading
+                  ? "Uploading"
+                  : `Analyzing ${activeJobs.length} image${
+                      activeJobs.length === 1 ? "" : "s"
+                    }`}
+              </p>
+              <p className="text-xs text-[#a1a4a5]">Indexing updates live.</p>
+            </div>
           </div>
         )}
 
         {showActions && (
-          <div className="mt-8 flex justify-center gap-4">
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
               href="/gallery"
-              className="rounded-full bg-black px-6 py-2.5 text-sm font-medium text-white transition-transform hover:scale-105"
+              className="white-pill px-5 py-2.5 text-sm font-semibold"
             >
               Open gallery
+              <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/clusters"
-              className="rounded-full border border-gray-200 px-6 py-2.5 text-sm font-medium text-black transition-colors hover:border-black hover:bg-gray-50"
+              className="frost-button px-5 py-2.5 text-sm font-medium"
             >
               View clusters
             </Link>
@@ -428,42 +433,42 @@ export default function UploadPage() {
         )}
 
         {uploadedFiles.length > 0 && (
-          <div className="mt-12">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-black">Recent Uploads</h3>
-              <span className="text-xs text-gray-500">
+          <div className="page-enter mt-12">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-medium text-[#f0f0f0]">
+                Recent uploads
+              </h3>
+              <span className="text-xs text-[#a1a4a5]">
                 {uploadedFiles.length} total
               </span>
             </div>
             <div className="space-y-2">
-              {uploadedFiles.map((result, idx) => {
+              {uploadedFiles.map((result) => {
                 const displayStatus = getDisplayStatus(result);
 
                 return (
                   <div
-                    key={`${result.filename}-${idx}`}
-                    className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3"
+                    key={`${result.job_id ?? result.media_id ?? result.filename}-${result.status}`}
+                    className="frost-panel flex items-center justify-between gap-4 rounded-2xl px-4 py-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                       {result.status === "duplicate" ? (
-                        <ImageIcon className="h-4 w-4 text-yellow-500" />
+                        <ImageIcon className="h-4 w-4 shrink-0 text-[#ffe08a]" />
                       ) : result.status === "failed" ||
                         result.processingState === "failed" ? (
-                        <XCircle className="h-4 w-4 text-red-500" />
+                        <XCircle className="h-4 w-4 shrink-0 text-[#ff9bab]" />
                       ) : result.processingState === "indexed" ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <CheckCircle className="h-4 w-4 shrink-0 text-[#7dffc7]" />
                       ) : (
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#3b9eff]" />
                       )}
 
-                      <p className="text-sm font-medium text-black truncate max-w-[200px] sm:max-w-xs">
+                      <p className="min-w-0 truncate text-sm font-medium text-[#f0f0f0]">
                         {result.filename}
                       </p>
                     </div>
 
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClasses(result)}`}
-                    >
+                    <span className={getStatusClasses(result)}>
                       {displayStatus}
                     </span>
                   </div>

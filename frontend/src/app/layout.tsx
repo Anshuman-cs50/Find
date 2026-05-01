@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -16,40 +17,49 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-white text-black antialiased">
+      <body className="bg-black text-[#f0f0f0] antialiased">
         <Providers>
-          <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md">
-            <div className="max-w-7xl mx-auto px-6 py-4">
-              <div className="flex items-center justify-between">
+          <nav className="sticky top-0 z-50 h-[var(--nav-height)] border-b border-[var(--frost)] bg-black/78 backdrop-blur-xl">
+            <div className="container-shell px-0 py-4">
+              <div className="flex items-center justify-between gap-4">
                 <Link
                   href="/"
-                  className="text-xl font-medium tracking-tight text-black"
+                  className="group flex shrink-0 items-center gap-3 text-sm font-semibold text-[#f0f0f0] transition-colors hover:text-white"
                 >
-                  Find.
+                  <span className="relative grid h-7 w-7 place-items-center rounded-md border border-[var(--frost)] bg-white/[0.03] p-1 transition-transform group-hover:scale-105">
+                    <Image
+                      src="/Find-Logo.svg"
+                      alt=""
+                      width={20}
+                      height={20}
+                      priority
+                    />
+                  </span>
+                  FIND.
                 </Link>
 
-                <div className="flex gap-8">
+                <div className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full border border-[var(--frost)] bg-white/[0.03] p-1">
                   <Link
                     href="/upload"
-                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium text-[#a1a4a5] transition hover:bg-white/[0.08] hover:text-[#f0f0f0] sm:px-4"
                   >
                     Upload
                   </Link>
                   <Link
                     href="/gallery"
-                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium text-[#a1a4a5] transition hover:bg-white/[0.08] hover:text-[#f0f0f0] sm:px-4"
                   >
                     Gallery
                   </Link>
                   <Link
                     href="/search"
-                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium text-[#a1a4a5] transition hover:bg-white/[0.08] hover:text-[#f0f0f0] sm:px-4"
                   >
                     Search
                   </Link>
                   <Link
                     href="/clusters"
-                    className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium text-[#a1a4a5] transition hover:bg-white/[0.08] hover:text-[#f0f0f0] sm:px-4"
                   >
                     Clusters
                   </Link>
@@ -59,6 +69,10 @@ export default function RootLayout({
           </nav>
 
           {children}
+
+          <div className="pointer-events-none fixed bottom-3 left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--frost)] bg-black/55 px-3 py-1 text-[11px] font-medium text-[#5f6568] backdrop-blur-md">
+            © 2026 Find. MIT License.
+          </div>
         </Providers>
       </body>
     </html>

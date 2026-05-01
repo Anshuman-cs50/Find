@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/cluster/trigger")
-async def trigger_clustering():
+def trigger_clustering():
     """
     Manually trigger the image clustering job
     """

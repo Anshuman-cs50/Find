@@ -41,13 +41,17 @@ def init_db():
         # Import models to register them
         from find_api.models import cluster, media  # noqa: F401
 
+        # pgvector must exist before SQLAlchemy creates vector columns.
+        if engine.dialect.name == "postgresql":
+            with engine.begin() as conn:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
         # Create all tables
         Base.metadata.create_all(bind=engine)
 
-        # Create pgvector extension and normalize schema when using PostgreSQL.
+        # Normalize schema when using PostgreSQL.
         if engine.dialect.name == "postgresql":
-            with engine.connect() as conn:
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            with engine.begin() as conn:
                 conn.execute(
                     text(
                         "ALTER TABLE IF EXISTS media "
@@ -66,7 +70,6 @@ def init_db():
                         f"ALTER COLUMN centroid_vector TYPE vector({settings.EMBEDDING_DIM})"
                     )
                 )
-                conn.commit()
 
         logger.info("Database initialized successfully")
     except Exception as e:

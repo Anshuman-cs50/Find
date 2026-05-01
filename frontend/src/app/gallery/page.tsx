@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
   Heart,
   ImageOff,
   Loader2,
@@ -14,17 +15,16 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ImagePreviewModal } from "@/components/image-preview-modal";
+import { StatusIndicator } from "@/components/status-indicator";
 import {
   deleteImage,
   type GalleryResponse,
   getGallery,
-  getImageDetail,
-  type MediaDetail,
   type MediaItem,
   toggleLike,
 } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
-import { formatBytes, formatDate, getStatusBadgeClass } from "@/lib/utils";
 
 export default function GalleryPage() {
   const [page, setPage] = useState(1);
@@ -57,12 +57,6 @@ export default function GalleryPage() {
         liked: likedOnly ? true : undefined,
       }),
     placeholderData: (previous) => previous,
-  });
-
-  const detailQuery = useQuery<MediaDetail, Error>({
-    queryKey: ["image-detail", selectedMediaId],
-    queryFn: () => getImageDetail(selectedMediaId as number),
-    enabled: selectedMediaId !== null,
   });
 
   const likeMutation = useMutation({
@@ -127,6 +121,13 @@ export default function GalleryPage() {
     return data.items.find((item) => item.id === selectedMediaId) ?? null;
   }, [data, selectedMediaId]);
 
+  const selectedIndex = useMemo(() => {
+    if (!data || selectedMediaId === null) {
+      return -1;
+    }
+    return data.items.findIndex((item) => item.id === selectedMediaId);
+  }, [data, selectedMediaId]);
+
   useEffect(() => {
     if (!data || selectedMediaId === null) {
       return;
@@ -156,49 +157,6 @@ export default function GalleryPage() {
   );
 
   const closeDetail = useCallback(() => setSelectedMediaId(null), []);
-
-  useEffect(() => {
-    if (selectedMediaId === null) {
-      return;
-    }
-
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeDetail();
-      } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        goToAdjacent(1);
-      } else if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        goToAdjacent(-1);
-      }
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [selectedMediaId, closeDetail, goToAdjacent]);
-
-  const detailData = detailQuery.data;
-  const isDetailLoading = detailQuery.isLoading || detailQuery.isFetching;
-
-  const detailImageSrc = resolveMediaUrl(
-    detailData?.url ?? selectedItem?.url,
-    detailData?.minio_key ?? selectedItem?.minio_key,
-  );
-  const detailLiked = detailData?.liked ?? selectedItem?.liked ?? false;
-  const detailStatus = detailData?.status ?? selectedItem?.status ?? "pending";
-  const detailClusterId = detailData?.cluster_id ?? selectedItem?.cluster_id;
-
-  const detailDownloadUrl = useMemo(() => {
-    if (detailData?.url) {
-      return detailData.url;
-    }
-    if (selectedItem?.url) {
-      return selectedItem.url;
-    }
-    return detailImageSrc ?? "";
-  }, [detailData?.url, detailImageSrc, selectedItem?.url]);
 
   const filters = [
     { label: "All", value: "all" as const },
@@ -234,19 +192,19 @@ export default function GalleryPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-12 text-center max-w-2xl mx-auto">
-          <h1 className="mb-4 text-4xl font-medium tracking-tight text-black">
+    <div className="page-shell">
+      <div className="container-shell py-10 md:py-14">
+        <div className="page-enter mx-auto mb-10 max-w-2xl text-center">
+          <h1 className="section-heading mb-4 text-5xl font-medium md:text-6xl">
             Gallery
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="muted-copy text-sm leading-6">
             Your entire visual collection, automatically analyzed and indexed.
           </p>
         </div>
 
-        <div className="mb-8 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-gray-100 pb-4">
-          <div className="flex gap-4">
+        <div className="frost-panel delayed-enter mb-8 flex flex-col items-center justify-between gap-4 rounded-3xl px-4 py-3 md:flex-row">
+          <div className="flex flex-wrap justify-center gap-1">
             {filters.map(({ label, value }) => (
               <button
                 type="button"
@@ -255,10 +213,10 @@ export default function GalleryPage() {
                   setFilter(value);
                   setPage(1);
                 }}
-                className={`text-sm font-medium transition-colors ${
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                   filter === value
-                    ? "text-black border-b-2 border-black pb-4 -mb-[17px]"
-                    : "text-gray-400 hover:text-gray-900 pb-4 -mb-[17px]"
+                    ? "bg-white text-black"
+                    : "text-[#a1a4a5] hover:bg-white/[0.08] hover:text-[#f0f0f0]"
                 }`}
               >
                 {label}
@@ -274,8 +232,8 @@ export default function GalleryPage() {
             }}
             className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-colors ${
               likedOnly
-                ? "bg-black text-white"
-                : "bg-gray-50 text-gray-600 hover:bg-gray-200 hover:text-black"
+                ? "border border-[var(--red-soft)] bg-[var(--red-soft)] text-[#ff9bab]"
+                : "border border-[var(--frost)] text-[#a1a4a5] hover:bg-white/[0.08] hover:text-[#f0f0f0]"
             }`}
           >
             <Heart className={`h-4 w-4 ${likedOnly ? "fill-current" : ""}`} />
@@ -285,21 +243,24 @@ export default function GalleryPage() {
 
         {isLoading && (
           <div className="flex items-center justify-center py-32">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#a1a4a5]" />
           </div>
         )}
 
         {error && (
           <div className="py-32 text-center">
-            <p className="text-gray-400">Failed to load gallery</p>
+            <p className="text-[#a1a4a5]">Failed to load gallery</p>
           </div>
         )}
 
         {data && data.items.length === 0 && (
-          <div className="py-32 text-center">
-            <ImageOff className="mx-auto mb-4 h-16 w-16 text-gray-200" />
-            <p className="mb-2 text-gray-400">No images found</p>
-            <Link href="/upload" className="text-sm text-black hover:underline">
+          <div className="frost-panel mx-auto max-w-md rounded-3xl px-8 py-16 text-center">
+            <ImageOff className="mx-auto mb-4 h-12 w-12 text-[#5f6568]" />
+            <p className="mb-2 text-[#f0f0f0]">No images found</p>
+            <Link
+              href="/upload"
+              className="text-sm text-[#3b9eff] hover:underline"
+            >
               Upload your first images
             </Link>
           </div>
@@ -307,112 +268,108 @@ export default function GalleryPage() {
 
         {data && data.items.length > 0 && (
           <>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
               {data.items.map((item) => {
                 const imageSrc = resolveMediaUrl(item.url, item.minio_key);
                 const downloadUrl = imageSrc ?? item.url ?? "";
 
                 return (
-                  <button
-                    type="button"
+                  <article
                     key={item.id}
-                    className="group relative aspect-square w-full overflow-hidden rounded-sm border border-gray-100 bg-gray-50 p-0 text-left transition-all hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
-                    onClick={() => setSelectedMediaId(item.id)}
-                    aria-label={`View ${item.filename}`}
+                    className="frost-panel card-hover group relative overflow-hidden rounded-2xl"
                   >
-                    {imageSrc ? (
-                      <Image
-                        src={imageSrc}
-                        alt={item.filename}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 16vw"
-                        unoptimized
+                    <button
+                      type="button"
+                      className="relative block aspect-square w-full overflow-hidden bg-white/[0.025] text-left focus:outline-none"
+                      onClick={() => setSelectedMediaId(item.id)}
+                      aria-label={`View ${item.filename}`}
+                    >
+                      {imageSrc ? (
+                        <Image
+                          src={imageSrc}
+                          alt={item.filename}
+                          fill
+                          className="object-cover transition duration-500 group-hover:scale-[1.035]"
+                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+                          unoptimized
+                        />
+                      ) : (
+                        <div
+                          className="flex h-full w-full flex-col items-center justify-center gap-2 text-[#5f6568]"
+                          role="img"
+                          aria-label="No preview available"
+                        >
+                          <ImageOff className="h-7 w-7" />
+                          <span className="text-xs">No preview</span>
+                        </div>
+                      )}
+
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/12 to-transparent opacity-60 transition-opacity group-hover:opacity-90" />
+                      <StatusIndicator
+                        status={item.status}
+                        className="absolute bottom-3 right-3"
                       />
-                    ) : (
-                      <div
-                        className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gray-100 text-gray-400"
-                        role="img"
-                        aria-label="No preview available"
-                      >
-                        <ImageOff className="h-8 w-8" />
-                        <span className="text-xs">No preview</span>
+                      <div className="absolute inset-0 grid place-items-center opacity-0 transition duration-200 group-hover:opacity-100">
+                        <span className="icon-button h-10 w-10 bg-black/[0.45] backdrop-blur-md">
+                          <Eye className="h-4 w-4" />
+                        </span>
                       </div>
-                    )}
+                    </button>
 
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-                      <span className="bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-black">
-                        View
-                      </span>
-                    </div>
-
-                    <div className="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100">
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 space-y-2 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-xs font-medium text-white">
-                            {item.filename}
-                          </p>
-                          <span className={getStatusBadgeClass(item.status)}>
-                            {item.status}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleToggleLike(item.id);
-                            }}
-                            disabled={likeMutation.isPending}
-                            className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-                              item.liked
-                                ? "bg-red-500 text-white hover:bg-red-600"
-                                : "bg-white/80 text-black hover:bg-white"
-                            } ${
-                              likeMutation.isPending
-                                ? "cursor-not-allowed opacity-70"
-                                : ""
+                    <div className="space-y-3 p-3">
+                      <p className="truncate text-xs font-medium text-[#f0f0f0]">
+                        {item.filename}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLike(item.id)}
+                          disabled={likeMutation.isPending}
+                          className={`icon-button h-8 w-8 ${
+                            item.liked ? "text-[#ff9bab]" : "text-[#a1a4a5]"
+                          } ${
+                            likeMutation.isPending
+                              ? "cursor-not-allowed opacity-70"
+                              : ""
+                          }`}
+                          aria-label={
+                            item.liked ? "Unlike image" : "Like image"
+                          }
+                        >
+                          <Heart
+                            className={`h-3.5 w-3.5 ${
+                              item.liked ? "fill-current" : ""
                             }`}
+                          />
+                        </button>
+                        {downloadUrl && (
+                          <a
+                            href={downloadUrl}
+                            download={item.filename}
+                            className="icon-button h-8 w-8 text-[#a1a4a5]"
+                            aria-label="Download image"
                           >
-                            <Heart
-                              className={`h-3 w-3 ${
-                                item.liked ? "fill-current" : ""
-                              }`}
-                            />
-                            {item.liked ? "Unlike" : "Like"}
-                          </button>
-                          {downloadUrl && (
-                            <a
-                              href={downloadUrl}
-                              download={item.filename}
-                              onClick={(event) => event.stopPropagation()}
-                              className="flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-xs font-medium text-black transition-colors hover:bg-white"
-                            >
-                              <Download className="h-3 w-3" />
-                              Download
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleDeleteRequest(item.id, item.filename);
-                            }}
-                            disabled={deleteMutation.isPending}
-                            className={`flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-xs font-medium text-black transition-colors hover:bg-white ${
-                              deleteMutation.isPending
-                                ? "cursor-not-allowed opacity-70"
-                                : ""
-                            }`}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Delete
-                          </button>
-                        </div>
+                            <Download className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteRequest(item.id, item.filename)
+                          }
+                          disabled={deleteMutation.isPending}
+                          className={`icon-button h-8 w-8 text-[#a1a4a5] ${
+                            deleteMutation.isPending
+                              ? "cursor-not-allowed opacity-70"
+                              : ""
+                          }`}
+                          aria-label="Delete image"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
-                  </button>
+                  </article>
                 );
               })}
             </div>
@@ -423,18 +380,18 @@ export default function GalleryPage() {
                   type="button"
                   onClick={() => setPage((current) => Math.max(1, current - 1))}
                   disabled={page === 1}
-                  className="rounded-full p-2 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="icon-button disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-[#a1a4a5]">
                   Page {page} of {Math.ceil(data.total / limit)}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPage((current) => current + 1)}
                   disabled={page >= Math.ceil(data.total / limit)}
-                  className="rounded-full p-2 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="icon-button disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
@@ -445,304 +402,32 @@ export default function GalleryPage() {
       </div>
 
       {selectedItem && (
-        <button
-          type="button"
-          className="fixed inset-0 z-50 flex h-full w-full cursor-default items-center justify-center bg-black/80 px-4"
-          onClick={closeDetail}
-          aria-label="Close detail view"
-        >
-          <div
-            className="relative max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-sm bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Image details"
-          >
-            <button
-              type="button"
-              onClick={closeDetail}
-              className="absolute right-4 top-4 z-20 rounded-full bg-black/70 p-2 text-white transition hover:bg-black"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            <div className="grid gap-6 md:grid-cols-[2fr_1fr] md:gap-10">
-              <div className="relative h-[55vh] w-full bg-gray-100 md:h-[70vh]">
-                {isDetailLoading ? (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                  </div>
-                ) : detailImageSrc ? (
-                  <Image
-                    src={detailImageSrc}
-                    alt={selectedItem.filename}
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 1024px) 100vw, 70vw"
-                    unoptimized
-                  />
-                ) : (
-                  <div
-                    className="flex h-full w-full flex-col items-center justify-center gap-3 text-gray-400"
-                    role="img"
-                    aria-label="Preview unavailable"
-                  >
-                    <ImageOff className="h-12 w-12" />
-                    <span className="text-sm">Preview unavailable</span>
-                  </div>
-                )}
-
-                <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between px-4">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      goToAdjacent(-1);
-                    }}
-                    disabled={
-                      !data ||
-                      selectedMediaId === null ||
-                      data.items.findIndex(
-                        (item) => item.id === selectedMediaId,
-                      ) <= 0
-                    }
-                    className={`pointer-events-auto rounded-full bg-black/60 p-2 text-white transition hover:bg-black ${
-                      !data ||
-                      selectedMediaId === null ||
-                      data.items.findIndex(
-                        (item) => item.id === selectedMediaId,
-                      ) <= 0
-                        ? "opacity-40"
-                        : "opacity-100"
-                    }`}
-                    aria-label="Previous"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      goToAdjacent(1);
-                    }}
-                    disabled={
-                      !data ||
-                      selectedMediaId === null ||
-                      data.items.findIndex(
-                        (item) => item.id === selectedMediaId,
-                      ) >=
-                        data.items.length - 1
-                    }
-                    className={`pointer-events-auto rounded-full bg-black/60 p-2 text-white transition hover:bg-black ${
-                      !data ||
-                      selectedMediaId === null ||
-                      data.items.findIndex(
-                        (item) => item.id === selectedMediaId,
-                      ) >=
-                        data.items.length - 1
-                        ? "opacity-40"
-                        : "opacity-100"
-                    }`}
-                    aria-label="Next"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex max-h-[70vh] flex-col gap-6 overflow-y-auto px-6 pb-6 pt-12 md:pt-10">
-                <div>
-                  <div className="mb-2 inline-flex items-center gap-2">
-                    <span className={getStatusBadgeClass(detailStatus)}>
-                      {detailStatus}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      ID {selectedItem.id}
-                    </span>
-                  </div>
-                  <h2 className="text-lg font-medium text-black">
-                    {selectedItem.filename}
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    Uploaded{" "}
-                    {selectedItem.created_at
-                      ? formatDate(selectedItem.created_at)
-                      : "Unknown"}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleLike(selectedItem.id)}
-                    disabled={likeMutation.isPending}
-                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      detailLiked
-                        ? "bg-red-500 text-white hover:bg-red-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    } ${
-                      likeMutation.isPending
-                        ? "cursor-not-allowed opacity-70"
-                        : ""
-                    }`}
-                  >
-                    <Heart
-                      className={`h-4 w-4 ${detailLiked ? "fill-current" : ""}`}
-                    />
-                    {detailLiked ? "Unlike" : "Like"}
-                  </button>
-                  {detailDownloadUrl && (
-                    <a
-                      href={detailDownloadUrl}
-                      download={selectedItem.filename}
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleDeleteRequest(
-                        selectedItem.id,
-                        selectedItem.filename,
-                      )
-                    }
-                    disabled={deleteMutation.isPending}
-                    className={`inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200 ${
-                      deleteMutation.isPending
-                        ? "cursor-not-allowed opacity-70"
-                        : ""
-                    }`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </button>
-                </div>
-
-                {detailQuery.isError && (
-                  <p className="rounded-sm bg-red-50 p-3 text-sm text-red-700">
-                    Failed to load additional metadata.
-                  </p>
-                )}
-
-                <div className="space-y-2 text-sm text-gray-700">
-                  {(detailData?.file_size ?? selectedItem.file_size) ? (
-                    <p>
-                      <span className="font-medium text-gray-900">
-                        File size:
-                      </span>{" "}
-                      {formatBytes(
-                        detailData?.file_size ?? selectedItem.file_size ?? 0,
-                      )}
-                    </p>
-                  ) : null}
-                  {(detailData?.width ?? selectedItem.width) &&
-                  (detailData?.height ?? selectedItem.height) ? (
-                    <p>
-                      <span className="font-medium text-gray-900">
-                        Dimensions:
-                      </span>{" "}
-                      {detailData?.width ?? selectedItem.width} ×{" "}
-                      {detailData?.height ?? selectedItem.height}
-                    </p>
-                  ) : null}
-                  <p>
-                    <span className="font-medium text-gray-900">Liked:</span>{" "}
-                    {detailLiked ? "Yes" : "No"}
-                  </p>
-                  {typeof detailClusterId === "number" && (
-                    <p>
-                      <span className="font-medium text-gray-900">
-                        Cluster:
-                      </span>{" "}
-                      <Link href="/clusters" className="text-black underline">
-                        Cluster {detailClusterId}
-                      </Link>
-                    </p>
-                  )}
-                  {detailData?.content_type ? (
-                    <p>
-                      <span className="font-medium text-gray-900">Type:</span>{" "}
-                      {detailData.content_type}
-                    </p>
-                  ) : null}
-                  {detailData?.processed_at ? (
-                    <p>
-                      <span className="font-medium text-gray-900">
-                        Processed:
-                      </span>{" "}
-                      {formatDate(detailData.processed_at)}
-                    </p>
-                  ) : null}
-                  {detailData?.error ? (
-                    <p className="text-red-600">
-                      <span className="font-medium">Error:</span>{" "}
-                      {detailData.error}
-                    </p>
-                  ) : null}
-                </div>
-
-                {detailData?.metadata?.caption && (
-                  <div>
-                    <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Caption
-                    </h3>
-                    <p className="text-sm text-gray-700">
-                      {detailData.metadata.caption}
-                    </p>
-                  </div>
-                )}
-
-                {detailData?.metadata?.objects &&
-                  detailData.metadata.objects.length > 0 && (
-                    <div>
-                      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Detected objects
-                      </h3>
-                      <ul className="space-y-1 text-sm text-gray-700">
-                        {detailData.metadata.objects.map((obj, index) => (
-                          <li
-                            key={`${obj.class}-${index}`}
-                            className="flex justify-between"
-                          >
-                            <span>{obj.class}</span>
-                            {typeof obj.confidence === "number" && (
-                              <span className="text-gray-500">
-                                {Math.round(obj.confidence * 100)}%
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                {detailData?.metadata?.ocr_text && (
-                  <div>
-                    <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      OCR text
-                    </h3>
-                    <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm text-gray-700">
-                      {detailData.metadata.ocr_text}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </button>
+        <ImagePreviewModal
+          media={selectedItem}
+          onClose={closeDetail}
+          onPrevious={() => goToAdjacent(-1)}
+          onNext={() => goToAdjacent(1)}
+          hasPrevious={selectedIndex > 0}
+          hasNext={
+            data
+              ? selectedIndex >= 0 && selectedIndex < data.items.length - 1
+              : false
+          }
+          onDeleted={(mediaId) => {
+            if (selectedMediaId === mediaId) {
+              setSelectedMediaId(null);
+            }
+          }}
+        />
       )}
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-sm rounded-sm bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold text-black">Delete image?</h2>
-            <p className="mt-2 text-sm text-gray-500">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-lg">
+          <div className="frost-panel page-enter w-full max-w-sm rounded-3xl p-6">
+            <h2 className="text-lg font-semibold text-[#f0f0f0]">
+              Delete image?
+            </h2>
+            <p className="mt-2 text-sm text-[#a1a4a5]">
               {deleteTarget.filename
                 ? `"${deleteTarget.filename}"`
                 : "This image"}{" "}
@@ -752,7 +437,7 @@ export default function GalleryPage() {
               <button
                 type="button"
                 onClick={cancelDelete}
-                className="rounded-sm border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-black hover:text-black"
+                className="frost-button px-4 py-2 text-sm font-medium"
               >
                 Cancel
               </button>
@@ -760,7 +445,7 @@ export default function GalleryPage() {
                 type="button"
                 onClick={confirmDelete}
                 disabled={deleteMutation.isPending}
-                className="flex items-center gap-2 rounded-sm bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--red-soft)] bg-[var(--red-soft)] px-4 py-2 text-sm font-medium text-[#ff9bab] transition hover:bg-[#ff2047]/25 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <Trash2 className="h-4 w-4" />
                 {deleteMutation.isPending ? "Deleting" : "Delete"}
@@ -771,12 +456,12 @@ export default function GalleryPage() {
       )}
 
       {deletionError && (
-        <div className="fixed bottom-6 right-6 z-[70] flex max-w-sm items-start gap-3 rounded-sm bg-red-600 px-4 py-3 text-white shadow-lg">
+        <div className="fixed bottom-6 right-6 z-[70] flex max-w-sm items-start gap-3 rounded-2xl border border-[var(--red-soft)] bg-black/90 px-4 py-3 text-[#ff9bab] shadow-lg backdrop-blur-lg">
           <span className="text-sm font-medium">{deletionError}</span>
           <button
             type="button"
             onClick={() => setDeletionError(null)}
-            className="ml-auto text-white/80 transition hover:text-white"
+            className="ml-auto text-[#ff9bab]/80 transition hover:text-[#ff9bab]"
             aria-label="Dismiss error"
           >
             <X className="h-4 w-4" />

@@ -61,7 +61,14 @@ class CLIPEmbedder:
             image_input = preprocess(image).unsqueeze(0).to(device)
 
             # Generate embedding
-            with torch.no_grad():
+            with (
+                torch.inference_mode(),
+                torch.autocast(
+                    device_type="cuda",
+                    dtype=torch.float16,
+                    enabled=device == "cuda",
+                ),
+            ):
                 embedding = model.encode_image(image_input)
                 embedding = embedding / embedding.norm(dim=-1, keepdim=True)
 
@@ -89,7 +96,14 @@ class CLIPEmbedder:
             text_input = tokenizer(text).to(device)
 
             # Generate embedding
-            with torch.no_grad():
+            with (
+                torch.inference_mode(),
+                torch.autocast(
+                    device_type="cuda",
+                    dtype=torch.float16,
+                    enabled=device == "cuda",
+                ),
+            ):
                 embedding = model.encode_text(text_input)
                 embedding = embedding / embedding.norm(dim=-1, keepdim=True)
 

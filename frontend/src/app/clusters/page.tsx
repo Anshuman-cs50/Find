@@ -1,10 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Grid3x3, Loader2, Play, RefreshCw, Sparkles, X } from "lucide-react";
+import { Grid3x3, ImageOff, Loader2, Play, RefreshCw, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  ImagePreviewModal,
+  type PreviewMedia,
+} from "@/components/image-preview-modal";
 import {
   getClusterDetail,
   getClusters,
@@ -28,11 +32,26 @@ function formatJobStatus(status?: string) {
   }
 }
 
+function getJobStatusClass(status?: string) {
+  switch (status) {
+    case "finished":
+      return "accent-badge status-indexed";
+    case "failed":
+      return "accent-badge status-failed";
+    case "queued":
+    case "started":
+      return "accent-badge status-processing";
+    default:
+      return "accent-badge status-default";
+  }
+}
+
 export default function ClustersPage() {
   const queryClient = useQueryClient();
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(
     null,
   );
+  const [previewMedia, setPreviewMedia] = useState<PreviewMedia | null>(null);
   const [clusterJobId, setClusterJobId] = useState<string | null>(null);
 
   const { data, isLoading, error, isFetching } = useQuery({
@@ -101,28 +120,31 @@ export default function ClustersPage() {
     };
   }, [data]);
 
+  const activeJobStatus = clusterJobQuery.data?.status;
+  const isJobActive =
+    activeJobStatus === "queued" || activeJobStatus === "started";
+
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-12 flex flex-col md:flex-row items-end justify-between border-b border-gray-100 pb-8 gap-6">
+    <div className="page-shell">
+      <div className="container-shell py-10 md:py-14">
+        <div className="page-enter mb-10 flex flex-col gap-6 border-b border-[var(--frost)] pb-8 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <h1 className="mb-4 text-4xl font-medium tracking-tight text-black">
+            <h1 className="section-heading mb-4 text-5xl font-medium md:text-6xl">
               Clusters
             </h1>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              Find automatically groups similar images together to help you
-              organize your collection. The AI dynamically identifies patterns
-              and contexts.
+            <p className="muted-copy text-sm leading-6">
+              Similar images are grouped into clean, browsable sets as your
+              library is indexed.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={() =>
                 queryClient.invalidateQueries({ queryKey: ["clusters"] })
               }
-              className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-black"
+              className="frost-button px-5 py-2.5 text-sm font-medium"
             >
               <RefreshCw
                 className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
@@ -133,7 +155,7 @@ export default function ClustersPage() {
               type="button"
               onClick={() => clusterMutation.mutate()}
               disabled={clusterMutation.isPending || clusterJobQuery.isFetching}
-              className="inline-flex items-center gap-2 rounded-full bg-black px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="white-pill px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
               {clusterMutation.isPending || clusterJobQuery.isFetching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -145,16 +167,18 @@ export default function ClustersPage() {
           </div>
         </div>
 
-        {clusterJobQuery.data?.status && (
-          <div className="mb-12 flex justify-center">
-            <div className="inline-flex items-center gap-3 rounded-full bg-gray-50 px-6 py-3">
-              <Sparkles className="h-4 w-4 text-black" />
-              <span className="text-sm font-medium text-black">
-                Job status: {formatJobStatus(clusterJobQuery.data?.status)}
+        {activeJobStatus && (
+          <div className="mb-8 flex justify-center">
+            <div className="frost-panel inline-flex flex-wrap items-center justify-center gap-3 rounded-full px-5 py-3">
+              {isJobActive && (
+                <Loader2 className="h-4 w-4 animate-spin text-[#3b9eff]" />
+              )}
+              <span className={getJobStatusClass(activeJobStatus)}>
+                {formatJobStatus(activeJobStatus)}
               </span>
               {clusterJobQuery.data?.job_id && (
-                <span className="text-xs text-gray-400">
-                  ID: {clusterJobQuery.data.job_id.slice(0, 8)}
+                <span className="text-xs text-[#a1a4a5]">
+                  ID {clusterJobQuery.data.job_id.slice(0, 8)}
                 </span>
               )}
             </div>
@@ -163,78 +187,80 @@ export default function ClustersPage() {
 
         {isLoading && (
           <div className="flex items-center justify-center py-32">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#a1a4a5]" />
           </div>
         )}
 
         {error && (
-          <div className="py-32 text-center">
-            <p className="text-gray-400">Failed to load clusters</p>
+          <div className="frost-panel mx-auto max-w-md rounded-3xl px-8 py-14 text-center">
+            <p className="text-[#ff9bab]">Failed to load clusters</p>
           </div>
         )}
 
         {data && data.clusters.length === 0 && (
-          <div className="py-32 text-center">
-            <Grid3x3 className="mx-auto mb-4 h-16 w-16 text-gray-200" />
-            <p className="mb-2 text-gray-400">No clusters found yet</p>
-            <p className="mb-6 text-sm text-gray-300">
-              Upload and index several related images, then wait for automatic
-              clustering or trigger it manually here.
+          <div className="frost-panel mx-auto max-w-md rounded-3xl px-8 py-14 text-center">
+            <Grid3x3 className="mx-auto mb-4 h-10 w-10 text-[#5f6568]" />
+            <p className="mb-2 text-[#f0f0f0]">No clusters yet</p>
+            <p className="mb-6 text-sm leading-6 text-[#a1a4a5]">
+              Index a few related images, then run clustering.
             </p>
             <button
               type="button"
               onClick={() => clusterMutation.mutate()}
               disabled={clusterMutation.isPending}
-              className="text-sm text-black underline transition-colors hover:text-gray-600"
+              className="white-pill px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Run clustering now
+              <Play className="h-4 w-4" />
+              Run clustering
             </button>
           </div>
         )}
 
         {data && data.clusters.length > 0 && (
-          <>
-            <div className="mb-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-sm border border-gray-100 p-4">
-                <p className="text-xs uppercase tracking-wide text-gray-400">
+          <div className="page-enter">
+            <div className="mb-8 grid gap-3 sm:grid-cols-2">
+              <div className="frost-panel rounded-2xl p-4">
+                <p className="text-xs uppercase text-[#5f6568]">
                   Total clusters
                 </p>
-                <p className="mt-2 text-2xl font-light text-black">
+                <p className="mt-2 text-3xl font-light text-[#f0f0f0]">
                   {totals.totalClusters}
                 </p>
               </div>
-              <div className="rounded-sm border border-gray-100 p-4">
-                <p className="text-xs uppercase tracking-wide text-gray-400">
+              <div className="frost-panel rounded-2xl p-4">
+                <p className="text-xs uppercase text-[#5f6568]">
                   Clustered images
                 </p>
-                <p className="mt-2 text-2xl font-light text-black">
+                <p className="mt-2 text-3xl font-light text-[#f0f0f0]">
                   {totals.totalImages}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-8">
+            <div className="grid gap-4 lg:grid-cols-2">
               {data.clusters.map((cluster) => (
-                <div
+                <article
                   key={cluster.id}
-                  className="rounded-sm border border-gray-100 p-6"
+                  className="frost-panel card-hover rounded-3xl p-5"
                 >
-                  <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="mb-2 flex items-center gap-3">
-                        <h2 className="text-lg font-medium text-black">
+                  <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-medium text-[#f0f0f0]">
                           Cluster {cluster.id}
                         </h2>
-                        <span className="rounded-sm bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                        <span className="accent-badge status-default">
                           {cluster.member_count}{" "}
                           {cluster.member_count === 1 ? "image" : "images"}
                         </span>
                       </div>
                       {cluster.label && (
-                        <p className="text-sm text-gray-500">{cluster.label}</p>
+                        <p className="text-sm text-[#a1a4a5]">
+                          {cluster.label}
+                        </p>
                       )}
                       {cluster.description && (
-                        <p className="mt-1 text-sm text-gray-400">
+                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5f6568]">
                           {cluster.description}
                         </p>
                       )}
@@ -243,92 +269,104 @@ export default function ClustersPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedClusterId(cluster.id)}
-                      className="rounded-sm border border-black px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-black hover:text-white"
+                      className="frost-button shrink-0 px-4 py-2 text-sm font-medium"
                     >
                       View members
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                     {cluster.samples.map((sample) => {
                       const imageSrc = resolveMediaUrl(sample.url);
 
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={sample.id}
-                          className="group aspect-square overflow-hidden rounded-sm border border-gray-100 bg-gray-50"
+                          onClick={() =>
+                            setPreviewMedia({
+                              id: sample.id,
+                              filename: sample.filename,
+                              url: sample.url,
+                            })
+                          }
+                          className="group relative aspect-square overflow-hidden rounded-2xl border border-[var(--frost)] bg-white/[0.025]"
+                          aria-label={`Preview ${sample.filename}`}
                         >
                           {imageSrc ? (
                             <Image
                               src={imageSrc}
                               alt={sample.filename}
-                              width={240}
-                              height={240}
-                              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                              fill
+                              className="object-cover transition duration-500 group-hover:scale-[1.05]"
+                              sizes="(max-width: 768px) 25vw, 10vw"
                               unoptimized
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
-                              No preview
+                            <div className="flex h-full w-full items-center justify-center text-[#5f6568]">
+                              <ImageOff className="h-5 w-5" />
                             </div>
                           )}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
-                </div>
+                </article>
               ))}
             </div>
-          </>
+          </div>
         )}
       </div>
 
       {selectedClusterId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="relative max-h-[90vh] w-full max-w-6xl overflow-hidden rounded-sm bg-white shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-xl">
+          <div className="frost-panel page-enter relative max-h-[90dvh] w-full max-w-6xl overflow-hidden rounded-3xl bg-black">
             <button
               type="button"
               onClick={() => setSelectedClusterId(null)}
-              className="absolute right-4 top-4 z-20 rounded-full bg-black/70 p-2 text-white transition hover:bg-black"
+              className="icon-button absolute right-4 top-4 z-20 bg-black/60 backdrop-blur-md"
               aria-label="Close cluster detail"
             >
               <X className="h-4 w-4" />
             </button>
 
-            <div className="border-b border-gray-100 px-6 py-5">
-              <h2 className="text-xl font-medium text-black">
+            <div className="border-b border-[var(--frost)] px-6 py-5">
+              <h2 className="text-xl font-medium text-[#f0f0f0]">
                 Cluster {selectedClusterId}
               </h2>
-              <p className="text-sm text-gray-500">
-                Browse the images grouped together by the semantic clustering
-                job.
+              <p className="mt-1 text-sm text-[#a1a4a5]">
+                Images grouped by visual and semantic similarity.
               </p>
             </div>
 
-            <div className="max-h-[calc(90vh-88px)] overflow-y-auto p-6">
+            <div className="max-h-[calc(90dvh-88px)] overflow-y-auto p-6">
               {selectedClusterQuery.isLoading && (
                 <div className="flex items-center justify-center py-24">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
+                  <Loader2 className="h-8 w-8 animate-spin text-[#a1a4a5]" />
                 </div>
               )}
 
               {selectedClusterQuery.isError && (
-                <div className="py-16 text-center text-gray-400">
+                <div className="py-16 text-center text-[#ff9bab]">
                   Failed to load cluster details.
                 </div>
               )}
 
               {selectedClusterQuery.data && (
                 <div>
-                  <div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                    <span>
+                  <div className="mb-6 flex flex-wrap items-center gap-3">
+                    <span className="accent-badge status-default">
                       {selectedClusterQuery.data.member_count} members
                     </span>
                     {selectedClusterQuery.data.label && (
-                      <span>{selectedClusterQuery.data.label}</span>
+                      <span className="text-sm text-[#a1a4a5]">
+                        {selectedClusterQuery.data.label}
+                      </span>
                     )}
                     {selectedClusterQuery.data.description && (
-                      <span>{selectedClusterQuery.data.description}</span>
+                      <span className="text-sm text-[#5f6568]">
+                        {selectedClusterQuery.data.description}
+                      </span>
                     )}
                   </div>
 
@@ -337,11 +375,21 @@ export default function ClustersPage() {
                       const imageSrc = resolveMediaUrl(member.url);
 
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={member.id}
-                          className="overflow-hidden rounded-sm border border-gray-100 bg-white"
+                          onClick={() =>
+                            setPreviewMedia({
+                              id: member.id,
+                              filename: member.filename,
+                              url: member.url,
+                              caption: member.caption,
+                            })
+                          }
+                          className="frost-panel card-hover overflow-hidden rounded-3xl text-left"
+                          aria-label={`Preview ${member.filename}`}
                         >
-                          <div className="relative aspect-[4/3] bg-gray-50">
+                          <div className="relative aspect-[4/3] bg-white/[0.025]">
                             {imageSrc ? (
                               <Image
                                 src={imageSrc}
@@ -352,22 +400,22 @@ export default function ClustersPage() {
                                 unoptimized
                               />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
-                                No preview
+                              <div className="flex h-full w-full items-center justify-center text-[#5f6568]">
+                                <ImageOff className="h-6 w-6" />
                               </div>
                             )}
                           </div>
                           <div className="space-y-2 p-4">
-                            <p className="text-sm font-medium text-black">
+                            <p className="truncate text-sm font-medium text-[#f0f0f0]">
                               {member.filename}
                             </p>
                             {member.caption && (
-                              <p className="text-sm text-gray-500">
+                              <p className="line-clamp-2 text-sm leading-6 text-[#a1a4a5]">
                                 {member.caption}
                               </p>
                             )}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -376,6 +424,18 @@ export default function ClustersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {previewMedia && (
+        <ImagePreviewModal
+          media={previewMedia}
+          onClose={() => setPreviewMedia(null)}
+          onDeleted={(mediaId) => {
+            if (previewMedia.id === mediaId) {
+              setPreviewMedia(null);
+            }
+          }}
+        />
       )}
     </div>
   );
