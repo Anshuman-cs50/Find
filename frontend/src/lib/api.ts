@@ -249,6 +249,21 @@ export const searchImages = async (params: {
   return response.data;
 };
 
+export interface ReprocessResponse {
+  media_id: number;
+  job_id: string;
+  status: "queued";
+}
+
+export const reprocessImage = async (
+  mediaId: number,
+): Promise<ReprocessResponse> => {
+  const response = await api.post<ReprocessResponse>(
+    `/api/image/${mediaId}/reprocess`,
+  );
+  return response.data;
+};
+
 export const getClusters = async (): Promise<ClustersResponse> => {
   const response = await api.get<ClustersResponse>("/api/clusters");
   return response.data;

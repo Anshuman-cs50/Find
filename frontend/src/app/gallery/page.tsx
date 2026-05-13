@@ -9,6 +9,7 @@ import {
   Heart,
   ImageOff,
   Loader2,
+  RotateCcw,
   Trash2,
   X,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import {
   type GalleryResponse,
   getGallery,
   type MediaItem,
+  reprocessImage,
   toggleLike,
 } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/media";
@@ -111,6 +113,14 @@ export default function GalleryPage() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["gallery"] });
+    },
+  });
+
+  const reprocessMutation = useMutation({
+    mutationFn: (mediaId: number) => reprocessImage(mediaId),
+    onSuccess: ({ media_id }) => {
+      queryClient.invalidateQueries({ queryKey: ["gallery"] });
+      queryClient.invalidateQueries({ queryKey: ["image-detail", media_id] });
     },
   });
 
@@ -351,6 +361,23 @@ export default function GalleryPage() {
                           >
                             <Download className="h-3.5 w-3.5" />
                           </a>
+                        )}
+                        {item.status === "failed" && (
+                          <button
+                            type="button"
+                            onClick={() => reprocessMutation.mutate(item.id)}
+                            disabled={reprocessMutation.isPending}
+                            className={`icon-button h-8 w-8 text-[#a1a4a5] ${
+                              reprocessMutation.isPending
+                                ? "cursor-not-allowed opacity-70"
+                                : ""
+                            }`}
+                            aria-label="Retry analysis"
+                          >
+                            <RotateCcw
+                              className={`h-3.5 w-3.5 ${reprocessMutation.isPending ? "animate-spin" : ""}`}
+                            />
+                          </button>
                         )}
                         <button
                           type="button"
