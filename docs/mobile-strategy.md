@@ -76,6 +76,8 @@ Reasoning:
 
 This does **not** mean the long-term mobile plan is “web forever.” It means the first milestone should validate the mobile UX and API shape with the smallest possible surface area.
 
+**MVP non-goals:** do not bundle the full Docker stack into a phone app, do not require on-device PostgreSQL/Redis/MinIO, and do not block the first mobile milestone on full local ML inference.
+
 ## 4. How mobile stays local-first
 
 Mobile should not become a hosted SaaS frontend that happens to show images.
