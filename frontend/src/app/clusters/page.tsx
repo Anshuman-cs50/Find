@@ -158,15 +158,15 @@ export default function ClustersPage() {
             <button
               type="button"
               onClick={() => clusterMutation.mutate()}
-              disabled={clusterMutation.isPending || clusterJobQuery.isFetching}
+              disabled={clusterMutation.isPending || clusterJobQuery.isFetching || isJobActive}
               className="white-pill px-5 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {clusterMutation.isPending || clusterJobQuery.isFetching ? (
+              {clusterMutation.isPending || clusterJobQuery.isFetching || isJobActive ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Play className="h-4 w-4" />
               )}
-              Re-cluster
+              {isJobActive ? "Clustering..." : "Re-cluster"}
             </button>
           </div>
         </div>
