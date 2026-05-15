@@ -209,6 +209,7 @@ export default function GalleryPage() {
               <button
                 type="button"
                 key={value}
+                aria-pressed={filter === value}
                 onClick={() => {
                   setFilter(value);
                   setPage(1);
@@ -226,6 +227,7 @@ export default function GalleryPage() {
 
           <button
             type="button"
+            aria-pressed={likedOnly}
             onClick={() => {
               setLikedOnly((previous) => !previous);
               setPage(1);
