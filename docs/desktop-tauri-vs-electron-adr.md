@@ -1,292 +1,157 @@
-# Desktop Framework ADR: Tauri vs Electron
+# ADR: Desktop Framework Evaluation (Tauri vs Electron)
 
-**Status:** Decided (Tauri Primary, Electron Evaluated as Fallback)
+- **Status:** Proposed (under evaluation)
+- **Date:** 2026-05-16
+- **Owner:** Find maintainers
+- **Related:** Discussion #37, Issue #49
 
-**Date:** 2026-05-14
+## Context
 
-**Context:** Evaluate Electron as a fallback option to Tauri for Find's desktop client. Goal is not to switch immediately, but to document tradeoffs and define conditions that would trigger a switch.
+Find is a local-first image intelligence platform currently delivered as a web application (Next.js frontend + FastAPI backend + worker pipeline).
 
----
+If Find adds desktop packaging, the chosen framework must support secure local orchestration of the full local stack, not only a web shell.
 
-## 1. Background
+That stack includes:
 
-Find is currently a web application with a Docker-based stack (Next.js frontend, FastAPI backend, ML pipeline). A desktop client is planned to enable local-first processing without Docker dependency.
+- Next.js frontend build output (`.next/` by default from `next build`)
+- FastAPI API process
+- Worker process and queue path (RQ + Redis)
+- PostgreSQL + pgvector for metadata and embeddings
+- Object storage (MinIO/S3-compatible) for media files
+- Optional local ML/runtime dependencies depending on mode
 
-Tauri was selected as the primary framework for its smaller footprint and native performance. However, three scenarios could favor Electron:
+## Decision statement (proposal)
 
-1. **Node-based orchestration** — The FastAPI backend and ML worker require Python + Redis + RQ. Electron can bundle Node tooling more naturally than Tauri for sidecar process management.
-2. **Auto-update tooling maturity** — Tauri 2.x updater is newer. Electron's electron-updater is battle-tested with GitHub Releases and S3.
-3. **Static export constraints** — Tauri requires Rust compilation per target. Electron works with standard Next.js builds without build target complexity.
+Tauri is the **primary framework candidate** for initial desktop investigation due to lower runtime overhead and stronger default hardening posture.
 
----
+Electron is the **evaluated fallback candidate** if Tauri-specific blockers appear during implementation spikes.
 
-## 2. Quantitative Tradeoffs
+This ADR does **not** authorize building two desktop implementations in parallel.
 
-### App Size
+## Goals
 
-| Framework | Packaged Size | Notes |
-|-----------|--------------|-------|
-| Tauri 2.x | 10-15 MB | WebView2 included on Windows (30-50MB if bundling WebView2 runtime) |
-| Electron 33+ | 80-150 MB | Chromium + Node.js bundled; no external runtime deps |
+- Keep framework choice evidence-based and reversible
+- Avoid parallel implementation tracks
+- Minimize installer size and idle resource usage where feasible
+- Preserve secure local-process boundaries for backend/worker sidecars
+- Support Windows/macOS/Linux packaging and update workflows
 
-**Real benchmarks:**
+## Non-goals
 
-- Tauri hello world: ~8 MB Windows installer (~3 MB compressed)
-- Electron hello world: ~100 MB Windows installer (~50 MB compressed)
-- Find's Next.js frontend build: ~2-5 MB (assets only)
+- Shipping both Tauri and Electron apps simultaneously
+- Finalizing a production installer pipeline in this ADR alone
+- Replacing existing web architecture
 
-**Startup Time**
+## Option A: Tauri
 
-| Framework | Cold Start | Warm Reload |
-|-----------|-----------|------------|
-| Tauri | 50-150 ms | < 20 ms |
-| Electron | 200-500 ms | 100-300 ms |
+### Strengths
 
-**Why the gap:**
+- Smaller baseline bundle size than Electron in typical apps
+- Faster cold startup and lower idle memory in many workloads
+- Rust-based host process with stricter-by-default API exposure model
+- Good fit when the UI is already web-based and rendered in a native webview
 
-- Tauri uses OS-native WebView2 (Windows) / WebKit (macOS/Linux)
-- Electron bundles full Chromium + V8 engine
-- Tauri runtime is ~1 MB; Electron runtime is ~50-70 MB
+### Constraints / risks
 
-### Memory Usage
+- Sidecar orchestration and cross-platform process packaging need careful setup
+- Auto-update flow requires release/channel planning and signing discipline
+- Team familiarity may be lower compared with Node-first Electron workflows
 
-| Framework | Idle Memory | Under Load |
-|-----------|-------------|------------|
-| Tauri | 30-60 MB | 80-150 MB |
-| Electron | 100-200 MB | 200-400 MB |
+### Notes on updater capabilities
 
-For Find, this matters: ML processing is memory-heavy already (YOLOv10 ~150MB, Florence-2 ~300MB). Saving 100-200 MB at the framework level leaves more headroom for model inference.
+Tauri updater is **not limited** to Tauri Cloud. It can also work with static JSON metadata served from locations such as GitHub Releases or S3-compatible storage, provided signing/versioning are configured correctly.
 
----
+## Option B: Electron
 
-## 3. Comparison Matrix
+### Strengths
 
-### 3.1 Installer Support
+- Mature ecosystem and tooling for packaging/distribution
+- Broad community references for updater and release workflows
+- Node runtime in main process can simplify some process-control patterns
 
-| Criterion | Tauri 2.x | Electron |
-|-----------|-----------|----------|
-| Windows | MSI, NSIS, WiX | NSIS, MSI (via electron-builder), Squirrel.Windows |
-| macOS | DMG, App Bundle | DMG, PKG, App Store |
-| Linux | AppImage, Deb, RPM | AppImage, Deb, RPM, Flatpak |
-| Signing | Requires Apple Developer account + notarization | Same requirements + notarization |
-| Distribution | Self-hosted or Tauri Updates server | Self-hosted, GitHub Releases, S3, generic server |
+### Constraints / risks
 
-**Analysis:**
-Both frameworks support all three major platforms. Tauri uses platform-native tools (WiX for Windows, DMG for macOS, etc.) which produce more idiomatic installers. Electron's electron-builder normalizes the experience across platforms but produces larger installers.
+- Larger baseline app size and higher memory footprint are common
+- Broader attack surface requires strict hardening and secure defaults
+- Potentially slower startup compared with Tauri for comparable shells
 
-**Verdict:** Tie, with slight edge to Tauri for smaller installer sizes.
+## Security considerations (both options)
 
-### 3.2 Auto-Update Maturity
+Both frameworks embed a web renderer model (Electron Chromium renderer; Tauri system webview). Security posture depends on implementation discipline, not framework branding alone.
 
-| Criterion | Tauri 2.x | Electron |
-|-----------|-----------|----------|
-| Update mechanism | Tauri Updater plugin (built-in) | electron-updater (electron-builder) |
-| Update sources | GitHub Releases, S3, custom endpoint | GitHub Releases, S3, generic HTTP server |
-| Delta updates | Supported (built-in) | Supported via electron-updater |
-| Rollback | Manual via version pinning | Built-in with electron-updater |
-| Maturity | ~2 years in production (2.x newer, < 1 year) | ~8 years in production |
-| Signed updates | Required | Required |
-| Self-update UX | Built-in UI components | Built-in API (autoUpdater) |
+Minimum controls required regardless of framework:
 
-**Analysis:**
-Electron's auto-update is battle-tested at scale (VS Code, Slack, Discord, etc.). Tauri 2.x updater works but has fewer production case studies. Edge cases like network interruption during update, corrupted downloads, and rollback scenarios are better documented for Electron.
+- Strict local origin allowlists and protocol validation
+- No untrusted remote content loading by default
+- Explicit IPC allowlist and argument validation
+- Signed artifacts and verified update metadata
+- Secure handling of local credentials/tokens/config paths
+- Principle of least privilege for spawned sidecar processes
 
-**Gaps for Find with Tauri:**
+## Sidecar/backend packaging reality check
 
-- No built-in update notification UI (must build custom)
-- Update server configuration requires self-hosting or Tauri Cloud
-- Less community knowledge for troubleshooting update failures
+For Find desktop mode, framework choice does not remove backend packaging complexity.
 
-**Verdict:** Electron. Auto-update is a production-critical feature for desktop apps; Electron's tooling has orders of magnitude more production hours.
+Both Tauri and Electron still require a strategy for bundling and launching:
 
-### 3.3 Process Management for Sidecars
+- Python executable/runtime for FastAPI and worker sidecars
+- Redis service path (embedded, bundled, or user-provided)
+- PostgreSQL/pgvector strategy (embedded vs managed local dependency)
+- Object storage strategy for media (embedded MinIO vs external/local service)
 
-**Context:** Find requires FastAPI backend + ML worker running as sidecar processes. These communicate via Redis and RQ.
+Frameworks differ mostly in orchestration ergonomics and host/runtime overhead, not in eliminating these dependencies.
 
-| Criterion | Tauri 2.x | Electron |
-|-----------|-----------|----------|
-| Child process spawning | Rust `Command` API | Node.js `child_process` |
-| Process lifecycle management | Built-in Rust APIs | Node.js APIs |
-| IPC with sidecars | Rust channels → JSON-RPC via Tauri commands | Node.js IPC + native messaging |
-| Process monitoring | Manual + Rust async | Node.js built-in monitoring |
-| Exit handling | Rust signal handlers | Node.js process events |
-| Cross-platform consistency | Good (Rust stdlib) | Good (Node.js cross-platform) |
-| Sidecar bundling | Python binary must be bundled separately | Python sidecar works same as any child process |
+## Comparison summary
 
-**Analysis:**
-Both frameworks can manage sidecar processes. Key differences:
+| Area | Tauri | Electron |
+| --- | --- | --- |
+| Installer/app footprint | Typically smaller | Typically larger |
+| Startup and idle memory | Typically lower | Typically higher |
+| Process control ergonomics | Strong but may need more custom setup | Mature Node-based patterns |
+| Updater ecosystem | Mature enough; supports static JSON + hosted artifacts | Very mature ecosystem |
+| Security baseline | Strong defaults with explicit API exposure | Strong when hardened correctly; requires strict config |
+| Fit with current Next.js app | Good (web frontend in webview) | Good (web frontend in Chromium) |
 
-- Tauri sidecar API (Tauri 1.x) was limited; Tauri 2.x improved this with `tauri-plugin-shell`
-- Electron's Node.js heritage makes it more natural for managing processes that use Node tooling
-- Python sidecars work fine on both, but bundling/distributing Python with Tauri requires additional tooling
+## Proposed evaluation plan
 
-**For Find's specific architecture:**
+1. Run a time-boxed Tauri spike focused on:
+   - launching frontend + API + worker
+   - packaging approach for Python runtime
+   - dev/prod process lifecycle reliability
+2. Validate installer behavior on Windows/macOS/Linux (at least smoke level)
+3. Test update path using signed metadata/artifacts
+4. Measure practical metrics (installer size, cold start, idle memory)
+5. Decide go/no-go using fallback triggers below
 
-1. FastAPI runs as sidecar → serves API on `localhost:8000`
-2. ML worker runs as sidecar → connects to Redis, processes RQ jobs
-3. Desktop app (Tauri/Electron) → makes HTTP calls to FastAPI sidecar
+## Fallback triggers (choose Electron over Tauri when…)
 
-This pattern is straightforward on both frameworks. Electron has slightly better tooling for managing multiple processes and their interdependencies.
+Electron should be selected only if one or more of these are demonstrated and unresolved after a bounded spike:
 
-**Verdict:** Slight edge to Electron for process management maturity, but Tauri 2.x is sufficient for Find's needs.
+- Tauri sidecar lifecycle is unreliable across target OSes under realistic Find workloads
+- Update/signing workflow cannot meet release reliability requirements in acceptable effort
+- Python runtime packaging with Tauri is repeatedly brittle beyond acceptable maintenance cost
+- Required desktop integration APIs are blocked or unstable in Tauri for project needs
+- Team delivery risk becomes high due to unresolved Tauri-specific issues and timeline pressure
 
-### 3.4 Security Hardening
+Preference or familiarity alone is **not** a valid trigger.
 
-| Criterion | Tauri 2.x | Electron |
-|-----------|-----------|----------|
-| CSP headers | Configurable | Configurable |
-| Context isolation | Default (browser-side) | Default |
-| Node integration | N/A (no Node in renderer) | Disabled by default in Electron 12+ |
-| Remote module | N/A | Removed in Electron 12+ |
-| Sandbox | Enabled by default | Enabled by default |
-| Preload scripts | Typed IPC between renderer and main | Context bridge API |
-| Security audit tooling | Limited | electron-security-auditor, npm audit |
-| Attack surface | Smaller (no bundled Chromium/Node in renderer) | Larger (full browser runtime exposed if misconfigured) |
+## Scope guardrail
 
-**Analysis:**
-Security hardening is where Tauri's architecture provides inherent advantages:
+- Keep one active implementation path at a time.
+- If fallback is triggered, formally record the switch in a follow-up ADR update.
+- Do not maintain parallel desktop codebases.
 
-- No Node.js in renderer → fewer attack vectors
-- No Chromium in separate process → smaller attack surface
-- Rust backend → memory safety by default
+## Open questions
 
-Electron has improved significantly (Electron 12+ disabled Node integration by default, added context isolation), but misconfiguration risks remain. For apps handling user data (like Find's image library), Tauri's default-deny architecture is preferable.
+- What is the final local dependency packaging model (embedded vs prerequisite services)?
+- Which update channel strategy is acceptable for OSS contributors and maintainers?
+- What signing/notarization workflow is sustainable for cross-platform releases?
+- Which baseline hardware/profile should be used for footprint and startup benchmarks?
 
-**Verdict:** Tauri. Better default security posture with minimal configuration.
+## Consequences
 
-### 3.5 Fit with Current Next.js App
+If Tauri succeeds, Find gets a lean desktop host with a single implementation path.
 
-| Criterion | Tauri 2.x | Electron |
-|-----------|-----------|----------|
-| Next.js integration | Works with `next export` or custom build | Works with standard Next.js build |
-| Static export constraint | Requires `output: 'export'` or Tauri build pipeline | No export constraints |
-| Next.js features supported | All except server-side features (API routes, SSR) | All features work (SSR disabled in packaged app) |
-| Build pipeline complexity | Higher (must configure Tauri build separately) | Lower (standard Next.js + electron-builder) |
-| Hot reload in development | Tauri CLI + Next.js dev server | Electron with custom reload tooling |
+If fallback triggers are met, Electron is adopted with explicit rationale and without parallel-track drift.
 
-**Analysis:**
-Find's frontend uses Next.js with API routes for upload/search functionality. In the desktop context:
-
-- API routes would move to the FastAPI sidecar
-- Client-side rendering is already the primary mode
-- No SSR dependency in core features
-
-Tauri requires either:
-
-1. `output: 'export'` for static export (loses some Next.js features)
-2. Custom build pipeline that runs Next.js build, then Tauri build
-
-Electron can use standard Next.js build output with minimal configuration.
-
-**Verdict:** Slight edge to Electron for Next.js integration simplicity.
-
----
-
-## 4. Decision Criteria
-
-Use Electron over Tauri when **any** of these conditions are met:
-
-### Hard Triggers (should switch immediately)
-
-1. **Auto-update is mandatory before first stable release** and Tauri updater cannot meet the timeline
-   - If Find needs auto-update working within 2 weeks and Tauri updater setup has blocking issues
-2. **Python bundling for sidecars becomes a blocker**
-   - If packaging Python + FastAPI for Tauri proves significantly harder than Electron
-3. **Team lacks Rust expertise** and critical Tauri-specific bugs arise
-   - Rust debugging is non-negotiable for time-critical fixes
-
-### Soft Triggers (evaluate and decide)
-
-4. **Static export limitation blocks a critical Next.js feature**
-   - e.g., `next/image` with external domains, dynamic routes, etc.
-5. **Auto-update production issues exceed threshold**
-   - If Tauri updater causes >5% of users to have update failures in beta
-6. **Sidecar process management complexity exceeds estimate**
-   - If Tauri-sidecar IPC causes significant engineering overhead
-
-### Tauri Stays
-
-7. **App size matters** — if size impact on user adoption is significant
-8. **Security is prioritized** — if users store sensitive images locally
-9. **Performance under ML load matters** — saving 100-200 MB framework overhead helps
-
----
-
-## 5. Architecture Implications
-
-### For Tauri
-
-```
-Desktop App (Tauri)
-├── WebView2 (Windows) / WebKit (macOS/Linux)
-├── Frontend: Next.js static build
-├── Sidecar: FastAPI + Python (bundled Python executable)
-│   └── RQ + Redis embedded or lightweight
-└── IPC: Tauri commands ↔ Rust ↔ FastAPI
-```
-
-### For Electron
-
-```
-Desktop App (Electron)
-├── Chromium + Node.js
-├── Frontend: Next.js build (standard, no export required)
-├── Sidecar: FastAPI + Python (child process)
-│   └── RQ + Redis embedded
-└── IPC: Context bridge ↔ preload ↔ main process ↔ FastAPI
-```
-
-**Key difference:** Tauri requires bundling Python; Electron treats FastAPI as any other child process.
-
----
-
-## 6. Outstanding Questions
-
-1. **Auto-update server**: Will Find self-host an update server, use Tauri Cloud, or use GitHub Releases?
-   - Tauri updater needs a server; Electron's GitHub Releases integration requires only a token
-2. **Python bundling**: Can we package FastAPI + ML worker as a single executable for Tauri?
-   - Tools: PyInstaller, Nuitka, or embedded Python in Rust
-3. **ML model distribution**: Will ML models be bundled in the installer or downloaded on first run?
-   - Bundling: larger installer, offline-first
-   - Download: smaller installer, requires first-run network
-4. **Sidecar architecture finalization**: Is embedded Redis + RQ realistic for desktop, or should the sidecar connect to a hosted Redis?
-   - Embedded: no external deps, but adds complexity
-   - Hosted: simpler app, but requires external service
-
----
-
-## 7. Recommendation
-
-**Start with Tauri.** Reasons:
-
-1. Size and performance advantages are significant for a local-first app
-2. Security posture is inherently better without browser runtime in renderer
-3. Tauri 2.x has matured to production readiness
-4. Find's architecture (FastAPI sidecar) works equally well on both
-
-**Switch to Electron if:**
-
-- Auto-update setup exceeds 1 week of engineering effort on Tauri
-- Python bundling causes blocker-level issues
-- Critical Tauri-specific bugs cannot be resolved in reasonable time
-
-**Do not implement Electron concurrently.** This ADR documents the decision criteria. If conditions trigger a switch, implement Electron as a replacement, not a parallel track.
-
----
-
-## 8. Implementation Notes (if switching to Electron)
-
-- Use `electron-builder` for packaging (mature, well-documented)
-- Use `electron-updater` for auto-update (GitHub Releases source recommended)
-- Next.js build: standard `next build` output in `out/` directory
-- FastAPI sidecar: spawn as child process, wait for health check before exposing to renderer
-- IPC: use context bridge pattern (Electron 12+ default secure pattern)
-- Security: enable `contextIsolation`, `sandbox`, `nodeIntegration: false`
-
----
-
-## 9. Related
-
-- Discussion: issue #37
-- Docker compose (existing backend architecture): `docker-compose.yml`
-- Light contributor mode for UI-only work: `docker-compose.light.yml`
+Either way, the decision remains traceable, evidence-based, and aligned with local-first architecture constraints.
