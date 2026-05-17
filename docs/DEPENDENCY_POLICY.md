@@ -23,7 +23,7 @@ Python's dependency resolver is deterministic when you lock it. Unlike npm's pee
 
 - **Strict lock via `uv.lock`:** Everything is resolved and frozen in `uv.lock`. No floating versions in `pyproject.toml` like `"fastapi>=0.100"`. When you run `uv sync`, you get *exactly* what's in the lock file, no surprises.
 - **Test GPU & mock modes locally before bumping major libs:** If you're bumping FastAPI, CLIP, or any ML lib, run it locally in both GPU mode and mock-embedder mode (`docker-compose.light.yml`). We've had cases where an update breaks ONNX loading or pgvector compatibility. Better to catch it locally than in CI.
-- **CI scans for known vulns:** `pip-audit` runs in CI and checks the locked deps against the Python Packaging Advisory DB. If it finds something, the build fails.
+- **CI scans for known vulns:** `pip-audit` runs in CI and checks the locked deps against the Python Packaging Advisory DB. This currently runs in report-only mode to prevent blocking unrelated PRs, but any new vulns must be resolved.
 
 **The exception:**
 Same as frontend — if a critical CVE lands, skip the local testing step, bump immediately, and get it merged fast.
