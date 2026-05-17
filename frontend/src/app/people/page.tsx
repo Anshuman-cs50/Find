@@ -18,9 +18,9 @@ import { toast } from "sonner";
 import {
   getPeople,
   getPersonImages,
-  updatePersonName,
-  triggerFaceClustering,
   type PersonItem,
+  triggerFaceClustering,
+  updatePersonName,
 } from "@/lib/api";
 
 // ─── Person Card Component ────────────────────────────────────────────────────
@@ -52,9 +52,13 @@ function PersonCard({
   return (
     <article className="frost-panel card-hover rounded-3xl p-5">
       {/* Sample face thumbnails */}
-      <div
-        className="mb-4 grid grid-cols-2 gap-2 cursor-pointer"
+      <button
+        type="button"
+        className="mb-4 grid w-full cursor-pointer grid-cols-2 gap-2 text-left"
         onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onClick();
+        }}
       >
         {person.sample_media_ids.length > 0 ? (
           person.sample_media_ids.slice(0, 4).map((mediaId) => (
@@ -77,7 +81,7 @@ function PersonCard({
             <ImageOff className="h-8 w-8" />
           </div>
         )}
-      </div>
+      </button>
 
       {/* Person name + edit */}
       <div className="mb-3 flex items-center gap-2">
@@ -93,7 +97,6 @@ function PersonCard({
               }}
               placeholder="Enter a name..."
               className="flex-1 rounded-xl border border-[var(--frost)] bg-white/[0.03] px-3 py-1.5 text-sm text-[#f0f0f0] outline-none focus:border-[#3b9eff]"
-              autoFocus
             />
             <button
               type="button"
@@ -204,8 +207,8 @@ export default function PeoplePage() {
             <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[var(--frost)] bg-white/[0.025] px-4 py-3">
               <Shield className="h-4 w-4 shrink-0 text-[#3b9eff]" />
               <p className="text-xs text-[#a1a4a5]">
-                All face data is processed and stored locally on your device.
-                No images or face data are ever sent to any external service.
+                All face data is processed and stored locally on your device. No
+                images or face data are ever sent to any external service.
               </p>
             </div>
           </div>
@@ -278,9 +281,7 @@ export default function PeoplePage() {
           <div className="page-enter">
             <div className="mb-8 grid gap-3 sm:grid-cols-2">
               <div className="frost-panel rounded-2xl p-4">
-                <p className="text-xs uppercase text-[#5f6568]">
-                  People found
-                </p>
+                <p className="text-xs uppercase text-[#5f6568]">People found</p>
                 <p className="mt-2 text-3xl font-light text-[#f0f0f0]">
                   {people.length}
                 </p>
