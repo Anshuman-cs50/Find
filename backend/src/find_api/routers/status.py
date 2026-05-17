@@ -30,10 +30,8 @@ def get_job_status(job_id: str):
         status_info = {
             "job_id": job_id,
             "status": job.get_status(),
-
             # ✅ NEW: stage tracking
             "stage": job.meta.get("stage", "unknown"),
-
             "created_at": job.created_at.isoformat() if job.created_at else None,
             "started_at": job.started_at.isoformat() if job.started_at else None,
             "ended_at": job.ended_at.isoformat() if job.ended_at else None,
