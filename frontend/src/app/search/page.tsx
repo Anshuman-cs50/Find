@@ -35,12 +35,9 @@ export default function SearchPage() {
     const activeQuery = searchMutation.data?.query;
     if (!activeQuery) return;
 
-    const intervalId = setInterval(
-      () => {
-        searchMutation.mutate(activeQuery);
-      },
-      MINIO_URL_REFRESH_INTERVAL_MS,
-    );
+    const intervalId = setInterval(() => {
+      searchMutation.mutate(activeQuery);
+    }, MINIO_URL_REFRESH_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
   }, [searchMutation.data?.query, searchMutation.mutate]);
