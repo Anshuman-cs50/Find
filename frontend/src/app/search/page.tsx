@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ImagePreviewModal } from "@/components/image-preview-modal";
 import { StatusIndicator } from "@/components/status-indicator";
 import { searchImages } from "@/lib/api";
-import { resolveMediaUrl } from "@/lib/media";
+import { MINIO_URL_REFRESH_INTERVAL_MS, resolveMediaUrl } from "@/lib/media";
 
 const examples = [
   "sunset over mountains",
@@ -39,11 +39,11 @@ export default function SearchPage() {
       () => {
         searchMutation.mutate(activeQuery);
       },
-      1000 * 60 * 50,
-    ); // 50 mins
+      MINIO_URL_REFRESH_INTERVAL_MS,
+    );
 
     return () => clearInterval(intervalId);
-  }, [searchMutation.data?.query, searchMutation]);
+  }, [searchMutation.data?.query, searchMutation.mutate]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();

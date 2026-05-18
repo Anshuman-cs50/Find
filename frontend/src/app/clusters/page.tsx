@@ -17,7 +17,11 @@ import {
   getJobStatus,
   triggerClustering,
 } from "@/lib/api";
-import { resolveMediaUrl } from "@/lib/media";
+import {
+  MINIO_URL_REFRESH_INTERVAL_MS,
+  MINIO_URL_STALE_TIME_MS,
+  resolveMediaUrl,
+} from "@/lib/media";
 
 function formatJobStatus(status?: string) {
   switch (status) {
@@ -59,16 +63,16 @@ export default function ClustersPage() {
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey: ["clusters"],
     queryFn: getClusters,
-    refetchInterval: clusterJobId ? 4000 : 1000 * 60 * 50,
-    staleTime: 1000 * 60 * 45,
+    refetchInterval: clusterJobId ? 4000 : 10000,
+    staleTime: MINIO_URL_STALE_TIME_MS,
   });
 
   const selectedClusterQuery = useQuery({
     queryKey: ["cluster-detail", selectedClusterId],
     queryFn: () => getClusterDetail(selectedClusterId as number),
     enabled: selectedClusterId !== null,
-    staleTime: 1000 * 60 * 45,
-    refetchInterval: 1000 * 60 * 50,
+    staleTime: MINIO_URL_STALE_TIME_MS,
+    refetchInterval: MINIO_URL_REFRESH_INTERVAL_MS,
   });
 
   const clusterJobQuery = useQuery({

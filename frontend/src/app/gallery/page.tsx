@@ -31,7 +31,11 @@ import {
   reprocessImage,
   toggleLike,
 } from "@/lib/api";
-import { resolveMediaUrl } from "@/lib/media";
+import {
+  MINIO_URL_REFRESH_INTERVAL_MS,
+  MINIO_URL_STALE_TIME_MS,
+  resolveMediaUrl,
+} from "@/lib/media";
 
 type GalleryFilter = "all" | "indexed" | "processing" | "failed";
 
@@ -174,7 +178,7 @@ function GalleryPageContent() {
         liked: likedOnly ? true : undefined,
       }),
     placeholderData: (previous) => previous,
-    staleTime: 1000 * 60 * 45, // 45 minutes to refresh before 1hr MinIO expiry
+    staleTime: MINIO_URL_STALE_TIME_MS,
     refetchInterval: (query) => {
       const gallery = query.state.data as GalleryResponse | undefined;
 
@@ -182,7 +186,7 @@ function GalleryPageContent() {
         (item) => item.status === "processing" || item.status === "pending",
       )
         ? 5000
-        : 1000 * 60 * 50; // 50 minutes fallback
+        : MINIO_URL_REFRESH_INTERVAL_MS;
     },
   });
 
