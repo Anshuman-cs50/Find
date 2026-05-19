@@ -30,17 +30,18 @@ export default function SearchPage() {
     mutationFn: (searchQuery: string) =>
       searchImages({ query: searchQuery, limit: 24 }),
   });
+  const activeQuery = searchMutation.data?.query;
+  const { mutate } = searchMutation;
 
   useEffect(() => {
-    const activeQuery = searchMutation.data?.query;
     if (!activeQuery) return;
 
     const intervalId = setInterval(() => {
-      searchMutation.mutate(activeQuery);
+      mutate(activeQuery);
     }, MINIO_URL_REFRESH_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
-  }, [searchMutation.data?.query, searchMutation.mutate]);
+  }, [activeQuery, mutate]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
