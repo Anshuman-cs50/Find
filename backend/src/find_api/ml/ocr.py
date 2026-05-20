@@ -1,5 +1,20 @@
 """
 OCR using PaddleOCR (CPU optimized)
+
+IMPORTANT: This module requires PaddleOCR 2.7.3 specifically.
+The code uses PaddleOCR 2.x API with the following parameters:
+  - use_angle_cls: Detect text angle
+  - use_gpu: Force CPU for efficiency
+  - show_log: Suppress verbose logging
+  - ocr(image, cls=True): Enable angle classification
+
+If upgrading to PaddleOCR 3.x, the following API changes are required:
+  - use_angle_cls → use_angle_cls parameter may change
+  - use_gpu → gpu parameter (boolean)
+  - show_log → May be removed or replaced with logging configuration
+  - ocr(image, cls=True) → ocr(img, det=True, rec=True, cls=True) signature changed
+
+Refer to https://github.com/PaddlePaddle/PaddleOCR for version-specific documentation.
 """
 
 from paddleocr import PaddleOCR
