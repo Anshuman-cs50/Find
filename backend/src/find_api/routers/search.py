@@ -57,6 +57,11 @@ def search_images(
                 id,
                 filename,
                 minio_key,
+                thumbnail_key,
+                thumbnail_content_type,
+                thumbnail_size,
+                thumbnail_width,
+                thumbnail_height,
                 status,
                 liked,
                 metadata_json,
@@ -107,6 +112,11 @@ def search_images(
             "id": row.id,
             "filename": row.filename,
             "minio_key": row.minio_key,
+            "thumbnail_key": row.thumbnail_key,
+            "thumbnail_content_type": row.thumbnail_content_type,
+            "thumbnail_size": row.thumbnail_size,
+            "thumbnail_width": row.thumbnail_width,
+            "thumbnail_height": row.thumbnail_height,
             "status": row.status,
             "liked": bool(row.liked),
             "width": row.width,
@@ -121,6 +131,13 @@ def search_images(
             media_metadata["url"] = get_file_url(row.minio_key)
         except Exception:
             media_metadata["url"] = None
+        if row.thumbnail_key:
+            try:
+                media_metadata["thumbnail_url"] = get_file_url(row.thumbnail_key)
+            except Exception:
+                media_metadata["thumbnail_url"] = None
+        else:
+            media_metadata["thumbnail_url"] = media_metadata["url"]
 
         results.append(
             {
