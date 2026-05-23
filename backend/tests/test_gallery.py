@@ -72,8 +72,10 @@ class TestGalleryResponseShape:
             "thumbnail_url",
             "liked",
             "url",
+            "thumbnail_url",
         }
         assert expected_keys.issubset(item.keys())
+        assert item["thumbnail_url"] == f"/api/image/{item['id']}/thumbnail"
 
     def test_thumbnail_redirect_prefers_thumbnail_key(self, client, db):
         media = _seed(db, filename="sunset.jpg", status="indexed")
@@ -212,6 +214,7 @@ class TestGalleryResponseShape:
         response = client.get(f"/api/image/{media.id}")
         assert response.status_code == 200
         body = response.json()
+        assert body["thumbnail_url"] == f"/api/image/{media.id}/thumbnail"
         assert "stage_status" in body["metadata"]
         assert body["metadata"]["stage_status"]["captioning"]["status"] == "failed"
         assert (

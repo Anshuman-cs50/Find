@@ -12,6 +12,7 @@ from typing import Dict
 from find_api.core.config import settings
 from find_api.core.database import get_db
 from find_api.core.storage import get_file_url
+from find_api.routers.gallery import build_thumbnail_url
 
 router = APIRouter()
 
@@ -131,13 +132,7 @@ def search_images(
             media_metadata["url"] = get_file_url(row.minio_key)
         except Exception:
             media_metadata["url"] = None
-        if row.thumbnail_key:
-            try:
-                media_metadata["thumbnail_url"] = get_file_url(row.thumbnail_key)
-            except Exception:
-                media_metadata["thumbnail_url"] = None
-        else:
-            media_metadata["thumbnail_url"] = media_metadata["url"]
+        media_metadata["thumbnail_url"] = build_thumbnail_url(row.id)
 
         results.append(
             {

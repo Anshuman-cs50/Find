@@ -25,6 +25,11 @@ router = APIRouter()
 GalleryStatus = Literal["pending", "processing", "indexed", "failed"]
 
 
+def build_thumbnail_url(media_id: int) -> str:
+    """Return the API route that serves the best available thumbnail."""
+    return f"/api/image/{media_id}/thumbnail"
+
+
 def normalize_metadata(value):
     if isinstance(value, dict):
         return value
@@ -102,13 +107,7 @@ def get_gallery(
             item["url"] = get_file_url(media.minio_key)
         except Exception:
             item["url"] = None
-        if media.thumbnail_key:
-            try:
-                item["thumbnail_url"] = get_file_url(media.thumbnail_key)
-            except Exception:
-                item["thumbnail_url"] = None
-        else:
-            item["thumbnail_url"] = item["url"]
+        item["thumbnail_url"] = build_thumbnail_url(media.id)
 
         # Add metadata if indexed
         metadata = normalize_metadata(media.metadata_json)
@@ -180,13 +179,7 @@ def get_image_detail(media_id: int, db: Session = Depends(get_db)):
         response["url"] = get_file_url(media.minio_key)
     except Exception:
         response["url"] = None
-    if media.thumbnail_key:
-        try:
-            response["thumbnail_url"] = get_file_url(media.thumbnail_key)
-        except Exception:
-            response["thumbnail_url"] = None
-    else:
-        response["thumbnail_url"] = response["url"]
+    response["thumbnail_url"] = build_thumbnail_url(media.id)
 
     return response
 
